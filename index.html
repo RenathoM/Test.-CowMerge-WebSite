@@ -28,12 +28,14 @@
 
         #header {
             background-color: var(--ui-bg); padding: 15px 20px;
-            display: flex; justify-content: space-between; align-items: center;
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3); z-index: 10;
         }
 
         #header h1 { margin: 0; font-size: 24px; }
-        .stats { font-size: 20px; font-weight: bold; display: flex; gap: 20px; }
+        .stats { font-size: 20px; font-weight: bold; display: flex; gap: 20px; justify-content: center; align-items: center;}
         .money { color: #f1c40f; }
         .income { color: #2ecc71; font-size: 16px; }
 
@@ -101,7 +103,7 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 20;
         }
         #btn-settings {
-            position: absolute; top: 15px; right: 20px;
+            
             background-color: #34495e; border: 2px solid #7f8c8d; border-radius: 50px;
             padding: 10px 15px; z-index: 20; font-size: 16px;
         }
@@ -144,13 +146,15 @@
 
     <div id="header">
         <h1>🐄 Merge Cow</h1>
-        <div class="stats" style="margin-right: 80px;">
+
+    <button id="btn-settings" onclick="openModal('modal-settings')">⚙️ Conf</button>
+
+        <div class="stats" >
             <span class="money">💰 $<span id="money-display">200</span></span>
             <span class="income">+$<span id="income-display">0</span>/3s</span>
         </div>
     </div>
 
-    <button id="btn-settings" onclick="openModal('modal-settings')">⚙️ Conf</button>
 
     <div id="game-area"></div>
 
@@ -576,7 +580,7 @@
                         let info = cowStr.split("|");
                         if (info.length >= 3) spawnCow(parseInt(info[0]), parseFloat(info[1]), parseFloat(info[2]));
                     });
-                }
+                }   
             }
             updateUI();
         }
@@ -594,6 +598,16 @@
         }, { once: true });
 
         window.onload = loadGame;
-    </script>
+
+</script>
 </body>
+
 </html>
+
+/* Separe todos as APIs necessarias para save, e reset a cada 24 horas.
+Garanta que todas as vacas sejam resetadas quando, enviar os dados do jogador ao leaderboard e ao clicar em resetar valores.
+Trocar no leaderboard em região ao em vez dos nomes dos paises, para as bandeiras de cada um.
+Verificar a cada spawn de vaca, se há uma sobre a outra, e se é possivel fundi-las por conta do nivel. Evitando a sobreposição ao spawn sem fusão.
+Adicione um botão em baixo para o cliente, chamado de Auto fuse, para quando ativado, as vacas no campo, irão para os pares dos mesmo niveis e fazer a fusão sozinhas, 
+ao em vez do jogador arrasta-las manualmente em toggle. Certifique-se de que ao selecionar o autofuse, o cliente ainda possa movar as vacas manualmente, assim como a função desativada. 
+Mantenha o código inteiro com as novas requisições, e pronto para datastorage/datasave em supabase, com o uso de APIs. *\
