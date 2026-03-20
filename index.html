@@ -6,7 +6,7 @@
     <title>Merge Cow - Web Edition</title>
     <style>
         /* ==========================================
-           ESTILOS ORIGINAIS (MANTIDOS)
+           ESTILOS (MODIFICADOS E OTIMIZADOS)
            ========================================== */
         :root {
             --bg-color: #2c3e50;
@@ -28,14 +28,12 @@
 
         #header {
             background-color: var(--ui-bg); padding: 15px 20px;
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center;
+            display: flex; justify-content: space-between; align-items: center;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3); z-index: 10;
         }
 
         #header h1 { margin: 0; font-size: 24px; }
-        .stats { font-size: 20px; font-weight: bold; display: flex; gap: 20px; justify-content: center; align-items: center;}
+        .stats { font-size: 20px; font-weight: bold; display: flex; gap: 20px; align-items: center;}
         .money { color: #f1c40f; }
         .income { color: #2ecc71; font-size: 16px; }
 
@@ -48,20 +46,24 @@
 
         #footer {
             background-color: var(--ui-bg); padding: 15px;
-            display: flex; justify-content: center; gap: 15px; z-index: 10;
+            display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; z-index: 10;
         }
 
         button {
             background-color: var(--btn-color); color: white; border: none;
-            padding: 12px 25px; font-size: 18px; font-weight: bold;
+            padding: 12px 20px; font-size: 16px; font-weight: bold;
             border-radius: 8px; cursor: pointer; transition: background 0.2s, transform 0.1s;
         }
         button:hover { background-color: var(--btn-hover); }
         button:active { transform: scale(0.95); }
-        button:disabled { background-color: #7f8c8d; cursor: not-allowed; }
+        button:disabled { background-color: #7f8c8d; cursor: not-allowed; transform: none; }
         
         .btn-danger { background-color: #e74c3c; }
         .btn-danger:hover { background-color: #c0392b; }
+        .btn-warning { background-color: #f39c12; }
+        .btn-warning:hover { background-color: #d68910; }
+        .btn-success { background-color: #2ecc71; color: #fff;}
+        .btn-success:hover { background-color: #27ae60;}
 
         .cow {
             width: var(--cow-size); height: var(--cow-size); background-color: white;
@@ -70,7 +72,7 @@
             font-size: 30px; cursor: grab; box-shadow: 0 5px 10px rgba(0,0,0,0.4);
             transition: transform 0.1s; touch-action: none;
         }
-        .cow:active { cursor: grabbing; transform: scale(1.1); z-index: 100; }
+        .cow:active { cursor: grabbing; transform: scale(1.1); z-index: 100 !important; }
 
         .cow-level {
             position: absolute; bottom: -5px; right: -5px; background-color: #e74c3c;
@@ -90,20 +92,12 @@
             100% { opacity: 0; transform: translateY(-40px) scale(1.5); }
         }
 
-        /* ==========================================
-           NOVOS ESTILOS (LEADERBOARD, MODAIS E BOTÕES)
-           ========================================== */
-        .btn-warning { background-color: #f39c12; }
-        .btn-warning:hover { background-color: #d68910; }
-        
-        /* Botões Flutuantes */
         #btn-leaderboard-view {
             position: absolute; bottom: 90px; right: 20px;
             background-color: #9b59b6; border-radius: 50px; padding: 15px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 20;
         }
         #btn-settings {
-            
             background-color: #34495e; border: 2px solid #7f8c8d; border-radius: 50px;
             padding: 10px 15px; z-index: 20; font-size: 16px;
         }
@@ -122,20 +116,18 @@
         .modal-content h2 { margin-top: 0; color: #f1c40f; }
         .modal-content input {
             padding: 10px; font-size: 18px; width: 80%; text-align: center;
-            text-transform: uppercase; margin: 15px 0; border-radius: 5px; border: none;
+            text-transform: uppercase; margin: 15px 0; border-radius: 5px; border: none; outline: none;
         }
         .modal-buttons { display: flex; justify-content: center; gap: 10px; margin-top: 15px; }
 
-        /* Tabela Leaderboard */
         table { width: 100%; border-collapse: collapse; margin-top: 15px; color: white; }
         th, td { padding: 10px; border-bottom: 1px solid #7f8c8d; }
         th { background: #2c3e50; }
-        tr:nth-child(1) td { color: #f1c40f; font-weight: bold; font-size: 22px; } /* Ouro */
-        tr:nth-child(2) td { color: #bdc3c7; font-weight: bold; } /* Prata */
-        tr:nth-child(3) td { color: #cd7f32; font-weight: bold; } /* Bronze */
+        tr:nth-child(1) td { color: #f1c40f; font-weight: bold; font-size: 22px; } 
+        tr:nth-child(2) td { color: #bdc3c7; font-weight: bold; } 
+        tr:nth-child(3) td { color: #cd7f32; font-weight: bold; } 
         .timer-text { color: #e74c3c; font-weight: bold; font-size: 14px; margin-top: 15px; }
         
-        /* Configurações */
         .setting-row {
             display: flex; justify-content: space-between; align-items: center;
             margin: 15px 0; font-size: 18px;
@@ -146,15 +138,12 @@
 
     <div id="header">
         <h1>🐄 Merge Cow</h1>
-
-    <button id="btn-settings" onclick="openModal('modal-settings')">⚙️ Conf</button>
-
-        <div class="stats" >
+        <button id="btn-settings" onclick="openModal('modal-settings')">⚙️ Conf</button>
+        <div class="stats">
             <span class="money">💰 $<span id="money-display">200</span></span>
             <span class="income">+$<span id="income-display">0</span>/3s</span>
         </div>
     </div>
-
 
     <div id="game-area"></div>
 
@@ -163,18 +152,19 @@
     <div id="footer">
         <button id="btn-submit-lb" class="btn-warning" onclick="openSubmitModal()">Submeter ao Ranking</button>
         <button id="btn-buy" onclick="buyCow()">Comprar Vaca ($<span id="price-display">50</span>)</button>
-        <button class="btn-danger" onclick="resetGame()">Resetar Progresso</button>
+        <button id="btn-auto-fuse" onclick="toggleAutoFuse()">🤖 Auto-Fuse: OFF</button>
+        <button class="btn-danger" onclick="confirmResetGame()">Resetar Progresso</button>
     </div>
 
     <div id="modal-submit" class="modal-overlay">
         <div class="modal-content">
             <h2>Enviar para o Placar Global</h2>
             <p>Seu dinheiro atual: <strong id="lbl-submit-money"></strong></p>
-            <p><strong>Atenção:</strong> Ao enviar, todo o seu progresso no pasto será <strong>resetado</strong> para que você comece uma nova jornada.</p>
-            <input type="text" id="player-name" maxlength="5" placeholder="NOME (5 letras)" oninput="this.value = this.value.toUpperCase()">
+            <p><strong>Atenção:</strong> Ao enviar, todas as suas vacas e saldos serão <strong>resetados</strong>.</p>
+            <input type="text" id="player-name" maxlength="5" placeholder="NOME (5 letras)">
             <div class="modal-buttons">
                 <button class="btn-danger" onclick="closeModal('modal-submit')">Cancelar</button>
-                <button class="btn-warning" onclick="submitToLeaderboard()">Enviar e Resetar</button>
+                <button class="btn-warning" onclick="processSubmitLeaderboard()">Enviar e Resetar</button>
             </div>
         </div>
     </div>
@@ -183,7 +173,7 @@
         <div class="modal-content" style="max-width: 500px;">
             <h2>🏆 Placar Global (Top 10)</h2>
             <div id="lb-content">Carregando...</div>
-            <div class="timer-text">Próximo reset (Brasília): <span id="lb-timer">00:00:00</span></div>
+            <div class="timer-text">Próximo reset (Banco de Dados/DB): <span id="lb-timer">00:00:00</span></div>
             <div class="modal-buttons">
                 <button onclick="closeModal('modal-leaderboard')">Fechar</button>
             </div>
@@ -195,7 +185,7 @@
             <h2>Configurações</h2>
             <div class="setting-row">
                 <span>🎵 Música de Fundo:</span>
-                <button id="btn-toggle-bgm" class="btn-warning" onclick="toggleBGM()">Desativada</button>
+                <button id="btn-toggle-bgm" class="btn-danger" onclick="toggleBGM()">Desativada</button>
             </div>
             <div class="setting-row">
                 <span>🔊 Efeitos Sonoros:</span>
@@ -209,59 +199,81 @@
 
     <script>
         // ==========================================
-        // SISTEMA DE ÁUDIO (NATIVO E PLAYLIST)
+        // 1. BACKEND API MODULE (Preparado para Supabase)
+        // ==========================================
+        const BackendAPI = {
+            async saveGameData(data) {
+                localStorage.setItem("MergeCowSave_v1", JSON.stringify(data));
+            },
+            async loadGameData() {
+                let saved = localStorage.getItem("MergeCowSave_v1");
+                return saved ? JSON.parse(saved) : null;
+            },
+            async submitToGlobalLeaderboard(playerData) {
+                let lbData = JSON.parse(localStorage.getItem("MockGlobalLeaderboard") || "[]");
+                let existing = lbData.find(p => p.name === playerData.name);
+                if (existing) {
+                    if (playerData.money > existing.money) existing.money = playerData.money;
+                } else {
+                    lbData.push(playerData);
+                }
+                lbData.sort((a, b) => b.money - a.money);
+                localStorage.setItem("MockGlobalLeaderboard", JSON.stringify(lbData.slice(0, 10)));
+            },
+            async fetchGlobalLeaderboard() {
+                return JSON.parse(localStorage.getItem("MockGlobalLeaderboard") || "[]");
+            },
+            async resetLeaderboardCronCheck() {
+                const now = new Date();
+                const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+                const brTime = new Date(utc + (3600000 * -3)); 
+                if (brTime.getHours() === 23 && brTime.getMinutes() === 59 && brTime.getSeconds() === 59) {
+                    localStorage.removeItem("MockGlobalLeaderboard");
+                }
+            }
+        };
+
+        // ==========================================
+        // SISTEMA DE ÁUDIO
         // ==========================================
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        let sfxEnabled = true;
-        let bgmEnabled = false;
+        let sfxEnabled = true; let bgmEnabled = false;
 
-        // Gerador de sons 8-bit nativo (SFX)
         function playTone(freq, type, duration) {
             if (!sfxEnabled) return;
             let osc = audioCtx.createOscillator();
             let gain = audioCtx.createGain();
-            osc.type = type;
-            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
             gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + duration);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
         }
 
         function playBuySound() { playTone(800, 'sine', 0.1); setTimeout(() => playTone(1200, 'sine', 0.15), 100); }
         function playMergeSound() { playTone(300, 'square', 0.1); setTimeout(() => playTone(500, 'square', 0.1), 100); setTimeout(() => playTone(800, 'square', 0.2), 200); }
         function playErrorSound() { playTone(150, 'sawtooth', 0.3); }
 
-        // Sistema de Trilha Sonora Infinita (BGM)
         const playlist = [
             "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3",
             "https://cdn.pixabay.com/download/audio/2022/04/27/audio_307fa21301.mp3?filename=chill-lofi-song-8444.mp3"
         ];
-        let currentTrack = 0;
-        let bgmAudio = new Audio(playlist[currentTrack]);
+        let currentTrack = 0; let bgmAudio = new Audio(playlist[currentTrack]);
         bgmAudio.volume = 0.2;
-
         bgmAudio.addEventListener('ended', () => {
             currentTrack = (currentTrack + 1) % playlist.length;
-            bgmAudio.src = playlist[currentTrack];
-            bgmAudio.play();
+            bgmAudio.src = playlist[currentTrack]; bgmAudio.play();
         });
 
         function toggleBGM() {
             bgmEnabled = !bgmEnabled;
             const btn = document.getElementById('btn-toggle-bgm');
             if (bgmEnabled) {
-                // Necessário para navegadores bloquearem áudio antes do clique
                 if (audioCtx.state === 'suspended') audioCtx.resume();
-                bgmAudio.play().catch(e => console.log("Áudio bloqueado pelo navegador"));
-                btn.innerText = "Ativada";
-                btn.className = "";
+                bgmAudio.play().catch(e => console.log("Áudio bloqueado"));
+                btn.innerText = "Ativada"; btn.className = "btn-success";
             } else {
-                bgmAudio.pause();
-                btn.innerText = "Desativada";
-                btn.className = "btn-danger";
+                bgmAudio.pause(); btn.innerText = "Desativada"; btn.className = "btn-danger";
             }
         }
 
@@ -269,29 +281,19 @@
             sfxEnabled = !sfxEnabled;
             const btn = document.getElementById('btn-toggle-sfx');
             btn.innerText = sfxEnabled ? "Ativados" : "Desativados";
-            btn.className = sfxEnabled ? "" : "btn-danger";
+            btn.className = sfxEnabled ? "btn-success" : "btn-danger";
         }
 
         // ==========================================
-        // 1. CONFIGURAÇÕES E VARIÁVEIS DE ESTADO (ORIGINAL)
+        // VARIÁVEIS CORE DO JOGO
         // ==========================================
-        const PRECO_INICIAL = 50;
-        const MULTIPLICADOR_CUSTO = 1.05;
-        const SALDO_INICIAL = 200;
-        
-        const INCOME_PER_LEVEL = [
-            0, 2, 10, 30, 80, 200, 450, 1000, 2200, 4800, 10000,
-            22000, 48000, 100000, 210000, 450000, 950000, 2000000, 
-            4200000, 9000000, 20000000, 45000000, 95000000, 200000000, 
-            450000000, 1000000000, 2200000000, 4800000000, 10000000000
-        ];
-
+        const PRECO_INICIAL = 50; const MULTIPLICADOR_CUSTO = 1.05; const SALDO_INICIAL = 200;
+        const INCOME_PER_LEVEL = [0, 2, 10, 30, 80, 200, 450, 1000, 2200, 4800, 10000, 22000, 48000, 100000, 210000, 450000, 950000, 2000000, 4200000, 9000000, 20000000, 45000000, 95000000, 200000000];
         const COW_EMOJIS = ["🐮", "🐄", "🐃", "🐂", "🐗", "🐘", "🦕", "🐉", "🦄", "👽"];
 
-        let money = SALDO_INICIAL;
-        let totalCompras = 0;
-        let cows = [];
-        let nextCowId = 1;
+        let money = SALDO_INICIAL; let totalCompras = 0; let cows = []; let nextCowId = 1;
+        let draggedCow = null; let offsetX = 0; let offsetY = 0;
+        let autoFuseActive = false; let autoFuseInterval = null;
 
         const gameArea = document.getElementById('game-area');
         const moneyDisplay = document.getElementById('money-display');
@@ -299,12 +301,8 @@
         const incomeDisplay = document.getElementById('income-display');
         const btnBuy = document.getElementById('btn-buy');
 
-        let draggedCow = null;
-        let offsetX = 0;
-        let offsetY = 0;
-
         // ==========================================
-        // MODAIS E LÓGICA DO LEADERBOARD GLOBAL
+        // LÓGICA DE INTERFACE E MODAIS
         // ==========================================
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
@@ -314,92 +312,37 @@
             openModal('modal-submit');
         }
 
-        // Timer UTC-3 (Brasília)
-        setInterval(() => {
-            const now = new Date();
-            // Pega o tempo em UTC e converte para UTC-3
-            const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-            const brTime = new Date(utc + (3600000 * -3)); 
-            
-            const nextMidnight = new Date(brTime);
-            nextMidnight.setHours(24, 0, 0, 0);
-
-            const diff = nextMidnight - brTime;
-            const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-            const s = Math.floor((diff % (1000 * 60)) / 1000);
-
-            document.getElementById('lb-timer').innerText = 
-                `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-                
-            // Reseta o Leaderboard automaticamente na virada
-            if (h === 23 && m === 59 && s === 59) {
-                localStorage.removeItem("MockGlobalLeaderboard");
-            }
-        }, 1000);
-
         async function getCountryFlag() {
             try {
-                // API gratuita para pegar IP e País
                 let res = await fetch('https://get.geojs.io/v1/ip/geo.json');
                 let data = await res.json();
                 let code = data.country || "BR";
-                // Converte Código do País (ex: BR) para Emoji de Bandeira
                 return code.toUpperCase().replace(/./g, char => String.fromCodePoint(char.charCodeAt(0) + 127397));
-            } catch (e) {
-                return "🏳️"; // Fallback se falhar
-            }
+            } catch (e) { return "🏳️"; }
         }
 
-        async function submitToLeaderboard() {
-            let name = document.getElementById('player-name').value.trim();
-            if (name.length < 3) {
-                playErrorSound();
-                alert("O apelido deve ter pelo menos 3 letras.");
-                return;
-            }
+        async function processSubmitLeaderboard() {
+            let nameElem = document.getElementById('player-name');
+            let name = nameElem.value.trim().toUpperCase();
+            if (name.length < 3) { playErrorSound(); alert("Mínimo 3 letras."); return; }
 
-            // Pega a bandeira
             let flag = await getCountryFlag();
-
-            // Salva no "Servidor Global" (Simulado aqui pelo LocalStorage para funcionar sem backend)
-            // NOTA: Em um site real multijogador, esse código faria um fetch(POST) para sua API.
-            let lbData = JSON.parse(localStorage.getItem("MockGlobalLeaderboard") || "[]");
             
-            // Verifica se o jogador já existe, se sim atualiza, se não cria
-            let existing = lbData.find(p => p.name === name);
-            if (existing) {
-                if(money > existing.money) existing.money = money;
-            } else {
-                lbData.push({ name: name, flag: flag, money: money });
-            }
-
-            // Ordena os 10 melhores
-            lbData.sort((a, b) => b.money - a.money);
-            lbData = lbData.slice(0, 10);
+            await BackendAPI.submitToGlobalLeaderboard({ name: name, flag: flag, money: money });
             
-            localStorage.setItem("MockGlobalLeaderboard", JSON.stringify(lbData));
-
-            // Reseta o progresso atual do jogador
-            localStorage.removeItem("MergeCowSave_v1");
-            alert("Progresso salvo no ranking com sucesso! O pasto foi resetado.");
-            location.reload();
+            hardResetPasto();
+            closeModal('modal-submit');
+            nameElem.value = "";
+            alert("Progresso enviado ao Leaderboard Global com sucesso! Pasto limpo.");
         }
 
-        function openLeaderboard() {
-            let lbData = JSON.parse(localStorage.getItem("MockGlobalLeaderboard") || "[]");
+        async function openLeaderboard() {
+            let lbData = await BackendAPI.fetchGlobalLeaderboard();
             let html = "<table><tr><th>#</th><th>País</th><th>Nome</th><th>Dinheiro ($)</th></tr>";
-            
-            if (lbData.length === 0) {
-                html += "<tr><td colspan='4'>Nenhum jogador no placar ainda hoje.</td></tr>";
-            } else {
+            if (lbData.length === 0) { html += "<tr><td colspan='4'>Nenhum jogador no placar ainda.</td></tr>"; } 
+            else {
                 lbData.forEach((p, index) => {
-                    html += `<tr>
-                        <td>${index + 1}</td>
-                        <td>${p.flag}</td>
-                        <td>${p.name}</td>
-                        <td>${abbreviate(p.money)}</td>
-                    </tr>`;
+                    html += `<tr><td>${index + 1}</td><td>${p.flag}</td><td>${p.name}</td><td>${abbreviate(p.money)}</td></tr>`;
                 });
             }
             html += "</table>";
@@ -407,12 +350,16 @@
             openModal('modal-leaderboard');
         }
 
-
         // ==========================================
-        // 2. FUNÇÕES CORE E ARRASTO (ORIGINAL COM SONS ADD)
+        // CORE: MECÂNICAS, SPAWN E ARRASTO
         // ==========================================
-
         function getCowPrice() { return Math.floor(PRECO_INICIAL * Math.pow(MULTIPLICADOR_CUSTO, totalCompras)); }
+        function abbreviate(v) {
+            if (v < 1000) return Math.floor(v).toString();
+            const u = ["", "K", "M", "B", "T", "Qa", "Qi"];
+            let idx = 0; while (v >= 1000 && idx < u.length - 1) { v /= 1000; idx++; }
+            return v.toFixed(1).replace(/\.0$/, '') + u[idx];
+        }
 
         function updateUI() {
             moneyDisplay.innerText = abbreviate(money);
@@ -422,30 +369,35 @@
             btnBuy.disabled = money < getCowPrice();
         }
 
-        function abbreviate(value) {
-            if (value < 1000) return value.toString();
-            const units = ["", "K", "M", "B", "T", "Qa", "Qi"];
-            let unitIndex = 0;
-            while (value >= 1000 && unitIndex < units.length - 1) { value /= 1000; unitIndex++; }
-            return value.toFixed(1).replace(/\.0$/, '') + units[unitIndex];
-        }
-
+        // Função buyCow modificada conforme solicitado: Spawn Aleatório com distância das bordas
         function buyCow() {
             let price = getCowPrice();
             if (money >= price) {
                 money -= price;
                 totalCompras++;
-                
-                let padding = 80;
-                let randomX = padding + Math.random() * (gameArea.clientWidth - padding * 2);
-                let randomY = padding + Math.random() * (gameArea.clientHeight - padding * 2);
-                
-                playBuySound(); // NOVO: Som de Compra
-                spawnCow(1, randomX, randomY);
-                updateUI();
+
+                let targetX = 0, targetY = 0;
+                let padding = 80; // Distância segura das bordas do mapa
+                let areaW = gameArea.clientWidth; 
+                let areaH = gameArea.clientHeight;
+
+                // Tenta encontrar uma posição que não sobreponha outra vaca fortemente
+                let overlap = true; 
+                let attempts = 0;
+                while (overlap && attempts < 30) {
+                    targetX = padding + Math.random() * (areaW - padding * 2);
+                    targetY = padding + Math.random() * (areaH - padding * 2);
+                    // Checa colisão com outras vacas (distância menor que 60px)
+                    overlap = cows.some(c => Math.sqrt(Math.pow(c.x - targetX, 2) + Math.pow(c.y - targetY, 2)) < 60);
+                    attempts++;
+                }
+
+                playBuySound();
+                spawnCow(1, targetX, targetY);
+                updateUI(); 
                 saveGame();
-            } else {
-                playErrorSound();
+            } else { 
+                playErrorSound(); 
             }
         }
 
@@ -453,8 +405,7 @@
             let id = nextCowId++;
             let cowElement = document.createElement('div');
             cowElement.className = 'cow';
-            cowElement.style.left = x + 'px';
-            cowElement.style.top = y + 'px';
+            cowElement.style.left = x + 'px'; cowElement.style.top = y + 'px';
             
             let emojiIndex = Math.min(level - 1, COW_EMOJIS.length - 1);
             cowElement.innerHTML = COW_EMOJIS[emojiIndex] + `<div class="cow-level">${level}</div>`;
@@ -502,81 +453,88 @@
             if (!draggedCow) return;
             draggedCow.element.style.zIndex = 1;
             checkMerge(draggedCow);
-            draggedCow = null;
-            saveGame();
+            draggedCow = null; saveGame();
         }
 
         function checkMerge(activeCow) {
             for (let i = 0; i < cows.length; i++) {
                 let otherCow = cows[i];
                 if (otherCow.id === activeCow.id) continue;
-
                 if (activeCow.level === otherCow.level) {
-                    let dx = activeCow.x - otherCow.x;
-                    let dy = activeCow.y - otherCow.y;
-                    let distance = Math.sqrt(dx * dx + dy * dy);
-
-                    if (distance < 50) { 
-                        performMerge(activeCow, otherCow);
-                        break;
-                    }
+                    let distance = Math.sqrt(Math.pow(activeCow.x - otherCow.x, 2) + Math.pow(activeCow.y - otherCow.y, 2));
+                    if (distance < 50) { performMerge(activeCow, otherCow); break; }
                 }
             }
         }
 
         function performMerge(cow1, cow2) {
             let nextLevel = cow1.level + 1;
-            let mergeX = (cow1.x + cow2.x) / 2;
-            let mergeY = (cow1.y + cow2.y) / 2;
-
+            let mergeX = (cow1.x + cow2.x) / 2; let mergeY = (cow1.y + cow2.y) / 2;
             cow1.element.remove(); cow2.element.remove();
             cows = cows.filter(c => c.id !== cow1.id && c.id !== cow2.id);
 
-            playMergeSound(); // NOVO: Som de Merge
-            createFloatingText("✨ MERGE!", mergeX, mergeY);
-            spawnCow(nextLevel, mergeX, mergeY);
-            updateUI();
+            playMergeSound(); createFloatingText("✨ MERGE!", mergeX, mergeY);
+            spawnCow(nextLevel, mergeX, mergeY); updateUI();
         }
 
-        function createFloatingText(text, x, y) {
-            let textElem = document.createElement('div');
-            textElem.className = 'floating-text';
-            textElem.innerText = text;
-            textElem.style.left = (x + 10) + 'px';
-            textElem.style.top = y + 'px';
-            gameArea.appendChild(textElem);
-            setTimeout(() => textElem.remove(), 1000);
+        // ==========================================
+        // AUTO-FUSE LOGIC
+        // ==========================================
+        function toggleAutoFuse() {
+            autoFuseActive = !autoFuseActive;
+            const btn = document.getElementById('btn-auto-fuse');
+            if (autoFuseActive) {
+                btn.className = "btn-success";
+                btn.innerText = "🤖 Auto-Fuse: ON";
+                autoFuseInterval = setInterval(processAutoFuseMovement, 30);
+            } else {
+                btn.className = "";
+                btn.innerText = "🤖 Auto-Fuse: OFF";
+                clearInterval(autoFuseInterval);
+            }
         }
 
-        setInterval(() => {
-            let income = 0;
-            cows.forEach(cow => { income += INCOME_PER_LEVEL[cow.level] || 0; });
-            if (income > 0) {
-                money += income;
-                updateUI();
-                saveGame();
-                if (cows.length > 0) {
-                    let randomCow = cows[Math.floor(Math.random() * cows.length)];
-                    createFloatingText("+$" + abbreviate(income), randomCow.x, randomCow.y - 20);
+        function processAutoFuseMovement() {
+            let cowsByLevel = {};
+            cows.forEach(c => {
+                if (c === draggedCow) return; // Ignora vaca em foco humano
+                if (!cowsByLevel[c.level]) cowsByLevel[c.level] = [];
+                cowsByLevel[c.level].push(c);
+            });
+
+            for (let level in cowsByLevel) {
+                let group = cowsByLevel[level];
+                if (group.length >= 2) {
+                    let c1 = group[0]; let c2 = group[1];
+                    let dx = c1.x - c2.x; let dy = c1.y - c2.y;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+
+                    if (dist < 40) {
+                        performMerge(c1, c2); return; // Fazer 1 merge por frame previne bugs de loop
+                    } else {
+                        let speed = 30;
+                        c2.x += (dx / dist) * speed; c2.y += (dy / dist) * speed;
+                        c2.element.style.left = c2.x + 'px'; c2.element.style.top = c2.y + 'px';
+                    }
                 }
             }
-        }, 3000);
-
-        function saveGame() {
-            let cowSaveData = cows.map(c => `${c.level}|${Math.floor(c.x)}|${Math.floor(c.y)}`);
-            let saveData = { money: money, totalCompras: totalCompras, cows: cowSaveData.join(";") };
-            localStorage.setItem("MergeCowSave_v1", JSON.stringify(saveData));
         }
 
-        function loadGame() {
-            let saved = localStorage.getItem("MergeCowSave_v1");
-            if (saved) {
-                let data = JSON.parse(saved);
+        // ==========================================
+        // SAVING, LOADING & RESETING
+        // ==========================================
+        function saveGame() {
+            let cowSaveData = cows.map(c => `${c.level}|${Math.floor(c.x)}|${Math.floor(c.y)}`).join(";");
+            BackendAPI.saveGameData({ money, totalCompras, cows: cowSaveData });
+        }
+
+        async function loadGame() {
+            let data = await BackendAPI.loadGameData();
+            if (data) {
                 money = data.money || SALDO_INICIAL;
                 totalCompras = data.totalCompras || 0;
                 if (data.cows) {
-                    let cowList = data.cows.split(";");
-                    cowList.forEach(cowStr => {
+                    data.cows.split(";").forEach(cowStr => {
                         let info = cowStr.split("|");
                         if (info.length >= 3) spawnCow(parseInt(info[0]), parseFloat(info[1]), parseFloat(info[2]));
                     });
@@ -585,29 +543,56 @@
             updateUI();
         }
 
-        function resetGame() {
-            if(confirm("Tem certeza que deseja apagar todo o seu progresso no pasto? (Isso não afeta o Leaderboard)")) {
-                localStorage.removeItem("MergeCowSave_v1");
-                location.reload();
+        function confirmResetGame() {
+            if(confirm("Deseja apagar TODO o seu progresso no pasto? Isso venderá todas as vacas e zerará seu saldo (Não afeta o Leaderboard).")) {
+                hardResetPasto();
             }
         }
 
-        // Tenta iniciar música em qualquer clique caso ativado, para contornar bloqueio de autoplay do navegador
-        document.body.addEventListener('click', () => {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-        }, { once: true });
+        function hardResetPasto() {
+            cows.forEach(c => c.element.remove());
+            cows = []; money = SALDO_INICIAL; totalCompras = 0; nextCowId = 1;
+            updateUI(); saveGame();
+        }
 
+        // ==========================================
+        // UTILITÁRIOS & LOOPS
+        // ==========================================
+        function createFloatingText(text, x, y) {
+            let textElem = document.createElement('div');
+            textElem.className = 'floating-text'; textElem.innerText = text;
+            textElem.style.left = (x + 10) + 'px'; textElem.style.top = y + 'px';
+            gameArea.appendChild(textElem); setTimeout(() => textElem.remove(), 1000);
+        }
+
+        setInterval(() => {
+            let income = cows.reduce((sum, cow) => sum + (INCOME_PER_LEVEL[cow.level] || 0), 0);
+            if (income > 0) {
+                money += income; updateUI(); saveGame();
+                if (cows.length > 0) {
+                    let rCow = cows[Math.floor(Math.random() * cows.length)];
+                    createFloatingText("+$" + abbreviate(income), rCow.x, rCow.y - 20);
+                }
+            }
+        }, 3000);
+
+        setInterval(() => { BackendAPI.resetLeaderboardCronCheck(); }, 1000); 
+
+        setInterval(() => {
+            const now = new Date();
+            const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+            const brTime = new Date(utc + (3600000 * -3)); 
+            const nextMidnight = new Date(brTime); nextMidnight.setHours(24, 0, 0, 0);
+            const diff = nextMidnight - brTime;
+            const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((diff % (1000 * 60)) / 1000);
+            document.getElementById('lb-timer').innerText = 
+                `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }, 1000);
+
+        document.body.addEventListener('click', () => { if (audioCtx.state === 'suspended') audioCtx.resume(); }, { once: true });
         window.onload = loadGame;
-
-</script>
+    </script>
 </body>
-
 </html>
-
-/* Separe todos as APIs necessarias para save, e reset a cada 24 horas.
-Garanta que todas as vacas sejam resetadas quando, enviar os dados do jogador ao leaderboard e ao clicar em resetar valores.
-Trocar no leaderboard em região ao em vez dos nomes dos paises, para as bandeiras de cada um.
-Verificar a cada spawn de vaca, se há uma sobre a outra, e se é possivel fundi-las por conta do nivel. Evitando a sobreposição ao spawn sem fusão.
-Adicione um botão em baixo para o cliente, chamado de Auto fuse, para quando ativado, as vacas no campo, irão para os pares dos mesmo niveis e fazer a fusão sozinhas, 
-ao em vez do jogador arrasta-las manualmente em toggle. Certifique-se de que ao selecionar o autofuse, o cliente ainda possa movar as vacas manualmente, assim como a função desativada. 
-Mantenha o código inteiro com as novas requisições, e pronto para datastorage/datasave em supabase, com o uso de APIs. *\
