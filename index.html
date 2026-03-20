@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merge Cow - Web Edition</title>
+    <style>
+        /* ==========================================
+           ESTILOS ORIGINAIS (MANTIDOS)
+           ========================================== */
+        :root {
+            --bg-color: #2c3e50;
+            --pasture-color: #27ae60;
+            --ui-bg: #34495e;
+            --text-color: #ecf0f1;
+            --btn-color: #3498db;
+            --btn-hover: #2980b9;
+            --cow-size: 60px;
+        }
+
+        body {
+            margin: 0; padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color); color: var(--text-color);
+            display: flex; flex-direction: column;
+            height: 100vh; overflow: hidden; user-select: none;
+        }
+
+        #header {
+            background-color: var(--ui-bg); padding: 15px 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3); z-index: 10;
+        }
+
+        #header h1 { margin: 0; font-size: 24px; }
+        .stats { font-size: 20px; font-weight: bold; display: flex; gap: 20px; }
+        .money { color: #f1c40f; }
+        .income { color: #2ecc71; font-size: 16px; }
+
+        #game-area {
+            flex-grow: 1; background-color: var(--pasture-color);
+            position: relative; overflow: hidden;
+            border: 5px solid #2ecc71; border-radius: 10px;
+            margin: 10px; box-shadow: inset 0 0 20px rgba(0,0,0,0.2);
+        }
+
+        #footer {
+            background-color: var(--ui-bg); padding: 15px;
+            display: flex; justify-content: center; gap: 15px; z-index: 10;
+        }
+
+        button {
+            background-color: var(--btn-color); color: white; border: none;
+            padding: 12px 25px; font-size: 18px; font-weight: bold;
+            border-radius: 8px; cursor: pointer; transition: background 0.2s, transform 0.1s;
+        }
+        button:hover { background-color: var(--btn-hover); }
+        button:active { transform: scale(0.95); }
+        button:disabled { background-color: #7f8c8d; cursor: not-allowed; }
+        
+        .btn-danger { background-color: #e74c3c; }
+        .btn-danger:hover { background-color: #c0392b; }
+
+        .cow {
+            width: var(--cow-size); height: var(--cow-size); background-color: white;
+            border: 3px solid #333; border-radius: 50%; position: absolute;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 30px; cursor: grab; box-shadow: 0 5px 10px rgba(0,0,0,0.4);
+            transition: transform 0.1s; touch-action: none;
+        }
+        .cow:active { cursor: grabbing; transform: scale(1.1); z-index: 100; }
+
+        .cow-level {
+            position: absolute; bottom: -5px; right: -5px; background-color: #e74c3c;
+            color: white; border-radius: 50%; width: 24px; height: 24px;
+            font-size: 14px; font-weight: bold; display: flex;
+            justify-content: center; align-items: center; border: 2px solid white;
+        }
+
+        .floating-text {
+            position: absolute; color: #f1c40f; font-weight: bold; font-size: 20px;
+            pointer-events: none; animation: floatUp 1s ease-out forwards;
+            text-shadow: 1px 1px 2px black; z-index: 50;
+        }
+
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-40px) scale(1.5); }
+        }
+
+        /* ==========================================
+           NOVOS ESTILOS (LEADERBOARD, MODAIS E BOTÕES)
+           ========================================== */
+        .btn-warning { background-color: #f39c12; }
+        .btn-warning:hover { background-color: #d68910; }
+        
+        /* Botões Flutuantes */
+        #btn-leaderboard-view {
+            position: absolute; bottom: 90px; right: 20px;
+            background-color: #9b59b6; border-radius: 50px; padding: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 20;
+        }
+        #btn-settings {
+            position: absolute; top: 15px; right: 20px;
+            background-color: #34495e; border: 2px solid #7f8c8d; border-radius: 50px;
+            padding: 10px 15px; z-index: 20; font-size: 16px;
+        }
+
+        /* Modais */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); display: none;
+            justify-content: center; align-items: center; z-index: 1000;
+        }
+        .modal-content {
+            background: var(--ui-bg); padding: 30px; border-radius: 10px;
+            text-align: center; max-width: 400px; width: 90%;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5); border: 2px solid var(--btn-color);
+        }
+        .modal-content h2 { margin-top: 0; color: #f1c40f; }
+        .modal-content input {
+            padding: 10px; font-size: 18px; width: 80%; text-align: center;
+            text-transform: uppercase; margin: 15px 0; border-radius: 5px; border: none;
+        }
+        .modal-buttons { display: flex; justify-content: center; gap: 10px; margin-top: 15px; }
+
+        /* Tabela Leaderboard */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; color: white; }
+        th, td { padding: 10px; border-bottom: 1px solid #7f8c8d; }
+        th { background: #2c3e50; }
+        tr:nth-child(1) td { color: #f1c40f; font-weight: bold; font-size: 22px; } /* Ouro */
+        tr:nth-child(2) td { color: #bdc3c7; font-weight: bold; } /* Prata */
+        tr:nth-child(3) td { color: #cd7f32; font-weight: bold; } /* Bronze */
+        .timer-text { color: #e74c3c; font-weight: bold; font-size: 14px; margin-top: 15px; }
+        
+        /* Configurações */
+        .setting-row {
+            display: flex; justify-content: space-between; align-items: center;
+            margin: 15px 0; font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="header">
+        <h1>🐄 Merge Cow</h1>
+        <div class="stats" style="margin-right: 80px;">
+            <span class="money">💰 $<span id="money-display">200</span></span>
+            <span class="income">+$<span id="income-display">0</span>/3s</span>
+        </div>
+    </div>
+
+    <button id="btn-settings" onclick="openModal('modal-settings')">⚙️ Conf</button>
+
+    <div id="game-area"></div>
+
+    <button id="btn-leaderboard-view" onclick="openLeaderboard()">🏆 Placar</button>
+
+    <div id="footer">
+        <button id="btn-submit-lb" class="btn-warning" onclick="openSubmitModal()">Submeter ao Ranking</button>
+        <button id="btn-buy" onclick="buyCow()">Comprar Vaca ($<span id="price-display">50</span>)</button>
+        <button class="btn-danger" onclick="resetGame()">Resetar Progresso</button>
+    </div>
+
+    <div id="modal-submit" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Enviar para o Placar Global</h2>
+            <p>Seu dinheiro atual: <strong id="lbl-submit-money"></strong></p>
+            <p><strong>Atenção:</strong> Ao enviar, todo o seu progresso no pasto será <strong>resetado</strong> para que você comece uma nova jornada.</p>
+            <input type="text" id="player-name" maxlength="5" placeholder="NOME (5 letras)" oninput="this.value = this.value.toUpperCase()">
+            <div class="modal-buttons">
+                <button class="btn-danger" onclick="closeModal('modal-submit')">Cancelar</button>
+                <button class="btn-warning" onclick="submitToLeaderboard()">Enviar e Resetar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-leaderboard" class="modal-overlay">
+        <div class="modal-content" style="max-width: 500px;">
+            <h2>🏆 Placar Global (Top 10)</h2>
+            <div id="lb-content">Carregando...</div>
+            <div class="timer-text">Próximo reset (Brasília): <span id="lb-timer">00:00:00</span></div>
+            <div class="modal-buttons">
+                <button onclick="closeModal('modal-leaderboard')">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-settings" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Configurações</h2>
+            <div class="setting-row">
+                <span>🎵 Música de Fundo:</span>
+                <button id="btn-toggle-bgm" class="btn-warning" onclick="toggleBGM()">Desativada</button>
+            </div>
+            <div class="setting-row">
+                <span>🔊 Efeitos Sonoros:</span>
+                <button id="btn-toggle-sfx" onclick="toggleSFX()">Ativados</button>
+            </div>
+            <div class="modal-buttons">
+                <button onclick="closeModal('modal-settings')">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // SISTEMA DE ÁUDIO (NATIVO E PLAYLIST)
+        // ==========================================
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let sfxEnabled = true;
+        let bgmEnabled = false;
+
+        // Gerador de sons 8-bit nativo (SFX)
+        function playTone(freq, type, duration) {
+            if (!sfxEnabled) return;
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function playBuySound() { playTone(800, 'sine', 0.1); setTimeout(() => playTone(1200, 'sine', 0.15), 100); }
+        function playMergeSound() { playTone(300, 'square', 0.1); setTimeout(() => playTone(500, 'square', 0.1), 100); setTimeout(() => playTone(800, 'square', 0.2), 200); }
+        function playErrorSound() { playTone(150, 'sawtooth', 0.3); }
+
+        // Sistema de Trilha Sonora Infinita (BGM)
+        const playlist = [
+            "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3",
+            "https://cdn.pixabay.com/download/audio/2022/04/27/audio_307fa21301.mp3?filename=chill-lofi-song-8444.mp3"
+        ];
+        let currentTrack = 0;
+        let bgmAudio = new Audio(playlist[currentTrack]);
+        bgmAudio.volume = 0.2;
+
+        bgmAudio.addEventListener('ended', () => {
+            currentTrack = (currentTrack + 1) % playlist.length;
+            bgmAudio.src = playlist[currentTrack];
+            bgmAudio.play();
+        });
+
+        function toggleBGM() {
+            bgmEnabled = !bgmEnabled;
+            const btn = document.getElementById('btn-toggle-bgm');
+            if (bgmEnabled) {
+                // Necessário para navegadores bloquearem áudio antes do clique
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                bgmAudio.play().catch(e => console.log("Áudio bloqueado pelo navegador"));
+                btn.innerText = "Ativada";
+                btn.className = "";
+            } else {
+                bgmAudio.pause();
+                btn.innerText = "Desativada";
+                btn.className = "btn-danger";
+            }
+        }
+
+        function toggleSFX() {
+            sfxEnabled = !sfxEnabled;
+            const btn = document.getElementById('btn-toggle-sfx');
+            btn.innerText = sfxEnabled ? "Ativados" : "Desativados";
+            btn.className = sfxEnabled ? "" : "btn-danger";
+        }
+
+        // ==========================================
+        // 1. CONFIGURAÇÕES E VARIÁVEIS DE ESTADO (ORIGINAL)
+        // ==========================================
+        const PRECO_INICIAL = 50;
+        const MULTIPLICADOR_CUSTO = 1.05;
+        const SALDO_INICIAL = 200;
+        
+        const INCOME_PER_LEVEL = [
+            0, 2, 10, 30, 80, 200, 450, 1000, 2200, 4800, 10000,
+            22000, 48000, 100000, 210000, 450000, 950000, 2000000, 
+            4200000, 9000000, 20000000, 45000000, 95000000, 200000000, 
+            450000000, 1000000000, 2200000000, 4800000000, 10000000000
+        ];
+
+        const COW_EMOJIS = ["🐮", "🐄", "🐃", "🐂", "🐗", "🐘", "🦕", "🐉", "🦄", "👽"];
+
+        let money = SALDO_INICIAL;
+        let totalCompras = 0;
+        let cows = [];
+        let nextCowId = 1;
+
+        const gameArea = document.getElementById('game-area');
+        const moneyDisplay = document.getElementById('money-display');
+        const priceDisplay = document.getElementById('price-display');
+        const incomeDisplay = document.getElementById('income-display');
+        const btnBuy = document.getElementById('btn-buy');
+
+        let draggedCow = null;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        // ==========================================
+        // MODAIS E LÓGICA DO LEADERBOARD GLOBAL
+        // ==========================================
+        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        function openSubmitModal() {
+            document.getElementById('lbl-submit-money').innerText = abbreviate(money);
+            openModal('modal-submit');
+        }
+
+        // Timer UTC-3 (Brasília)
+        setInterval(() => {
+            const now = new Date();
+            // Pega o tempo em UTC e converte para UTC-3
+            const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+            const brTime = new Date(utc + (3600000 * -3)); 
+            
+            const nextMidnight = new Date(brTime);
+            nextMidnight.setHours(24, 0, 0, 0);
+
+            const diff = nextMidnight - brTime;
+            const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((diff % (1000 * 60)) / 1000);
+
+            document.getElementById('lb-timer').innerText = 
+                `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                
+            // Reseta o Leaderboard automaticamente na virada
+            if (h === 23 && m === 59 && s === 59) {
+                localStorage.removeItem("MockGlobalLeaderboard");
+            }
+        }, 1000);
+
+        async function getCountryFlag() {
+            try {
+                // API gratuita para pegar IP e País
+                let res = await fetch('https://get.geojs.io/v1/ip/geo.json');
+                let data = await res.json();
+                let code = data.country || "BR";
+                // Converte Código do País (ex: BR) para Emoji de Bandeira
+                return code.toUpperCase().replace(/./g, char => String.fromCodePoint(char.charCodeAt(0) + 127397));
+            } catch (e) {
+                return "🏳️"; // Fallback se falhar
+            }
+        }
+
+        async function submitToLeaderboard() {
+            let name = document.getElementById('player-name').value.trim();
+            if (name.length < 3) {
+                playErrorSound();
+                alert("O apelido deve ter pelo menos 3 letras.");
+                return;
+            }
+
+            // Pega a bandeira
+            let flag = await getCountryFlag();
+
+            // Salva no "Servidor Global" (Simulado aqui pelo LocalStorage para funcionar sem backend)
+            // NOTA: Em um site real multijogador, esse código faria um fetch(POST) para sua API.
+            let lbData = JSON.parse(localStorage.getItem("MockGlobalLeaderboard") || "[]");
+            
+            // Verifica se o jogador já existe, se sim atualiza, se não cria
+            let existing = lbData.find(p => p.name === name);
+            if (existing) {
+                if(money > existing.money) existing.money = money;
+            } else {
+                lbData.push({ name: name, flag: flag, money: money });
+            }
+
+            // Ordena os 10 melhores
+            lbData.sort((a, b) => b.money - a.money);
+            lbData = lbData.slice(0, 10);
+            
+            localStorage.setItem("MockGlobalLeaderboard", JSON.stringify(lbData));
+
+            // Reseta o progresso atual do jogador
+            localStorage.removeItem("MergeCowSave_v1");
+            alert("Progresso salvo no ranking com sucesso! O pasto foi resetado.");
+            location.reload();
+        }
+
+        function openLeaderboard() {
+            let lbData = JSON.parse(localStorage.getItem("MockGlobalLeaderboard") || "[]");
+            let html = "<table><tr><th>#</th><th>País</th><th>Nome</th><th>Dinheiro ($)</th></tr>";
+            
+            if (lbData.length === 0) {
+                html += "<tr><td colspan='4'>Nenhum jogador no placar ainda hoje.</td></tr>";
+            } else {
+                lbData.forEach((p, index) => {
+                    html += `<tr>
+                        <td>${index + 1}</td>
+                        <td>${p.flag}</td>
+                        <td>${p.name}</td>
+                        <td>${abbreviate(p.money)}</td>
+                    </tr>`;
+                });
+            }
+            html += "</table>";
+            document.getElementById('lb-content').innerHTML = html;
+            openModal('modal-leaderboard');
+        }
+
+
+        // ==========================================
+        // 2. FUNÇÕES CORE E ARRASTO (ORIGINAL COM SONS ADD)
+        // ==========================================
+
+        function getCowPrice() { return Math.floor(PRECO_INICIAL * Math.pow(MULTIPLICADOR_CUSTO, totalCompras)); }
+
+        function updateUI() {
+            moneyDisplay.innerText = abbreviate(money);
+            priceDisplay.innerText = abbreviate(getCowPrice());
+            let totalIncome = cows.reduce((sum, cow) => sum + (INCOME_PER_LEVEL[cow.level] || 0), 0);
+            incomeDisplay.innerText = abbreviate(totalIncome);
+            btnBuy.disabled = money < getCowPrice();
+        }
+
+        function abbreviate(value) {
+            if (value < 1000) return value.toString();
+            const units = ["", "K", "M", "B", "T", "Qa", "Qi"];
+            let unitIndex = 0;
+            while (value >= 1000 && unitIndex < units.length - 1) { value /= 1000; unitIndex++; }
+            return value.toFixed(1).replace(/\.0$/, '') + units[unitIndex];
+        }
+
+        function buyCow() {
+            let price = getCowPrice();
+            if (money >= price) {
+                money -= price;
+                totalCompras++;
+                
+                let padding = 80;
+                let randomX = padding + Math.random() * (gameArea.clientWidth - padding * 2);
+                let randomY = padding + Math.random() * (gameArea.clientHeight - padding * 2);
+                
+                playBuySound(); // NOVO: Som de Compra
+                spawnCow(1, randomX, randomY);
+                updateUI();
+                saveGame();
+            } else {
+                playErrorSound();
+            }
+        }
+
+        function spawnCow(level, x, y) {
+            let id = nextCowId++;
+            let cowElement = document.createElement('div');
+            cowElement.className = 'cow';
+            cowElement.style.left = x + 'px';
+            cowElement.style.top = y + 'px';
+            
+            let emojiIndex = Math.min(level - 1, COW_EMOJIS.length - 1);
+            cowElement.innerHTML = COW_EMOJIS[emojiIndex] + `<div class="cow-level">${level}</div>`;
+            
+            gameArea.appendChild(cowElement);
+            let cowData = { id: id, level: level, x: x, y: y, element: cowElement };
+            cows.push(cowData);
+
+            cowElement.addEventListener('mousedown', (e) => startDrag(e, cowData));
+            cowElement.addEventListener('touchstart', (e) => startDrag(e.touches[0], cowData), {passive: false});
+
+            return cowData;
+        }
+
+        function startDrag(e, cowData) {
+            draggedCow = cowData;
+            let rect = cowData.element.getBoundingClientRect();
+            let areaRect = gameArea.getBoundingClientRect();
+            offsetX = e.clientX - (rect.left - areaRect.left);
+            offsetY = e.clientY - (rect.top - areaRect.top);
+            cowData.element.style.zIndex = 1000;
+        }
+
+        document.addEventListener('mousemove', (e) => drag(e));
+        document.addEventListener('touchmove', (e) => { if(draggedCow) { e.preventDefault(); drag(e.touches[0]); }}, {passive: false});
+
+        function drag(e) {
+            if (!draggedCow) return;
+            let areaRect = gameArea.getBoundingClientRect();
+            let newX = e.clientX - areaRect.left - offsetX;
+            let newY = e.clientY - areaRect.top - offsetY;
+
+            newX = Math.max(0, Math.min(newX, areaRect.width - 60));
+            newY = Math.max(0, Math.min(newY, areaRect.height - 60));
+
+            draggedCow.x = newX; draggedCow.y = newY;
+            draggedCow.element.style.left = newX + 'px';
+            draggedCow.element.style.top = newY + 'px';
+        }
+
+        document.addEventListener('mouseup', stopDrag);
+        document.addEventListener('touchend', stopDrag);
+
+        function stopDrag() {
+            if (!draggedCow) return;
+            draggedCow.element.style.zIndex = 1;
+            checkMerge(draggedCow);
+            draggedCow = null;
+            saveGame();
+        }
+
+        function checkMerge(activeCow) {
+            for (let i = 0; i < cows.length; i++) {
+                let otherCow = cows[i];
+                if (otherCow.id === activeCow.id) continue;
+
+                if (activeCow.level === otherCow.level) {
+                    let dx = activeCow.x - otherCow.x;
+                    let dy = activeCow.y - otherCow.y;
+                    let distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < 50) { 
+                        performMerge(activeCow, otherCow);
+                        break;
+                    }
+                }
+            }
+        }
+
+        function performMerge(cow1, cow2) {
+            let nextLevel = cow1.level + 1;
+            let mergeX = (cow1.x + cow2.x) / 2;
+            let mergeY = (cow1.y + cow2.y) / 2;
+
+            cow1.element.remove(); cow2.element.remove();
+            cows = cows.filter(c => c.id !== cow1.id && c.id !== cow2.id);
+
+            playMergeSound(); // NOVO: Som de Merge
+            createFloatingText("✨ MERGE!", mergeX, mergeY);
+            spawnCow(nextLevel, mergeX, mergeY);
+            updateUI();
+        }
+
+        function createFloatingText(text, x, y) {
+            let textElem = document.createElement('div');
+            textElem.className = 'floating-text';
+            textElem.innerText = text;
+            textElem.style.left = (x + 10) + 'px';
+            textElem.style.top = y + 'px';
+            gameArea.appendChild(textElem);
+            setTimeout(() => textElem.remove(), 1000);
+        }
+
+        setInterval(() => {
+            let income = 0;
+            cows.forEach(cow => { income += INCOME_PER_LEVEL[cow.level] || 0; });
+            if (income > 0) {
+                money += income;
+                updateUI();
+                saveGame();
+                if (cows.length > 0) {
+                    let randomCow = cows[Math.floor(Math.random() * cows.length)];
+                    createFloatingText("+$" + abbreviate(income), randomCow.x, randomCow.y - 20);
+                }
+            }
+        }, 3000);
+
+        function saveGame() {
+            let cowSaveData = cows.map(c => `${c.level}|${Math.floor(c.x)}|${Math.floor(c.y)}`);
+            let saveData = { money: money, totalCompras: totalCompras, cows: cowSaveData.join(";") };
+            localStorage.setItem("MergeCowSave_v1", JSON.stringify(saveData));
+        }
+
+        function loadGame() {
+            let saved = localStorage.getItem("MergeCowSave_v1");
+            if (saved) {
+                let data = JSON.parse(saved);
+                money = data.money || SALDO_INICIAL;
+                totalCompras = data.totalCompras || 0;
+                if (data.cows) {
+                    let cowList = data.cows.split(";");
+                    cowList.forEach(cowStr => {
+                        let info = cowStr.split("|");
+                        if (info.length >= 3) spawnCow(parseInt(info[0]), parseFloat(info[1]), parseFloat(info[2]));
+                    });
+                }
+            }
+            updateUI();
+        }
+
+        function resetGame() {
+            if(confirm("Tem certeza que deseja apagar todo o seu progresso no pasto? (Isso não afeta o Leaderboard)")) {
+                localStorage.removeItem("MergeCowSave_v1");
+                location.reload();
+            }
+        }
+
+        // Tenta iniciar música em qualquer clique caso ativado, para contornar bloqueio de autoplay do navegador
+        document.body.addEventListener('click', () => {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }, { once: true });
+
+        window.onload = loadGame;
+    </script>
+</body>
+</html>
