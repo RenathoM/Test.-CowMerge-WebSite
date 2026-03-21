@@ -980,11 +980,27 @@
         document.getElementById('btn-ev-ufo').addEventListener('click', () => triggerManualEvent(startUFOEvent));
         document.getElementById('btn-ev-flood').addEventListener('click', () => triggerManualEvent(startFloodEvent));
 
-        // Timer Checkers Aleatorios (Background)
-        setInterval(() => { if(Math.random() < 0.005 && !meteor.active && !flood.active && !ufoEvent.active) startMeteorEvent(); }, 300000); // 5 min
-        setInterval(() => { if(Math.random() < 0.01 && !ufoEvent.active && cows.length > 0 && !meteor.active && !flood.active) startUFOEvent(); }, 1500000); // 25 min
-        setInterval(() => { if(Math.random() < 0.05 && cows.length > 0) { SFX.cough(); createFloatingText("*Cof*", cows[0].position.x, cows[0].position.z); } }, 60000); // 1 min
-        setInterval(() => { if(Math.random() < 0.03 && !flood.active && !meteor.active && !ufoEvent.active) startFloodEvent(); }, 900000); // 15 min
+        // Timer Checkers Eventos Aleatorios (Background) - 1 por vez garantido 
+        setInterval(() => {
+            // Se já existe algum evento principal acontecendo, não tenta iniciar outro
+            if (meteor.active || flood.active || ufoEvent.active) return;
+
+            // A estrutura "else if" garante a regra de exclusividade: apenas UM acontece.
+            // Ordem de verificação do mais raro para o mais comum.
+            if (Math.random() < 0.05) {
+                startMeteorEvent();
+            } 
+            else if (Math.random() < 0.1 && cows.length > 0) {
+                startUFOEvent();
+            } 
+            else if (Math.random() < 0.3) {
+                startFloodEvent();
+            } 
+            else if (Math.random() < 0.5 && cows.length > 0) {
+                SFX.cough(); 
+                createFloatingText("*Cof*", cows[0].position.x, cows[0].position.z);
+            }
+        }, 60000); // Roda a cada 1 minuto exato
 
         function startMeteorEvent() {
             meteor.active = true; meteor.timer = 0; meteor.phase = 'pre1'; meteor.clicks = 0;
