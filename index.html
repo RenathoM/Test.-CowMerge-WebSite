@@ -103,8 +103,8 @@
             text-align: center; color: white; max-height: 85vh; overflow-y: auto;
         }
         /* Scrollbar custom */
-        .modal-content::-webkit-scrollbar { width: 8px; }
-        .modal-content::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+        .modal-content::-webkit-scrollbar, #admin-lb-content::-webkit-scrollbar { width: 6px; }
+        .modal-content::-webkit-scrollbar-thumb, #admin-lb-content::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
         .modal-content h2 { color: var(--accent); margin-top: 0; font-weight: 300; letter-spacing: 2px; }
         
         .modal-buttons { display: flex; justify-content: center; gap: 15px; margin-top: 25px; }
@@ -166,12 +166,25 @@
                 <button class="btn-collection" onclick="openCollection()">📖 Coleção</button>
             </div>
 
-            <div id="event-panel" class="glass-panel" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); pointer-events: auto; padding: 10px 20px; align-items: center; z-index: 50; transition: all 0.3s;">
-                <div id="event-toggle" style="cursor: pointer; font-weight: 800; color: var(--accent); letter-spacing: 1px; font-size: 14px; text-transform: uppercase;">▼ Controle de Eventos ▼</div>
-                <div id="event-buttons" style="display: none; gap: 10px; margin-top: 15px;">
-                    <button id="btn-ev-flood" class="btn-primary" style="font-size: 12px; padding: 8px 15px; border-color: #00e5ff; color: #00e5ff;">Inundação</button>
-                    <button id="btn-ev-ufo" class="btn-primary" style="font-size: 12px; padding: 8px 15px; border-color: #ffd700; color: #ffd700;">OVNI</button>
-                    <button id="btn-ev-meteor" class="btn-primary" style="background: rgba(255,50,50,0.2); border-color: #ff3333; color: #ff3333; font-size: 12px; padding: 8px 15px;">Meteoro</button>
+            <div id="event-panel" class="glass-panel" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); pointer-events: auto; padding: 10px 20px; align-items: center; z-index: 50; transition: all 0.3s; min-width: 280px;">
+                <div id="event-toggle" style="cursor: pointer; font-weight: 800; color: var(--accent); letter-spacing: 1px; font-size: 14px; text-transform: uppercase; text-align: center;">▼ Controle de Eventos ▼</div>
+                
+                <div id="event-buttons" style="display: none; flex-direction: column; gap: 15px; margin-top: 15px; width: 100%;">
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button id="btn-ev-flood" class="btn-primary" style="font-size: 12px; padding: 8px 15px; border-color: #00e5ff; color: #00e5ff;">Inundação</button>
+                        <button id="btn-ev-ufo" class="btn-primary" style="font-size: 12px; padding: 8px 15px; border-color: #ffd700; color: #ffd700;">OVNI</button>
+                        <button id="btn-ev-meteor" class="btn-primary" style="background: rgba(255,50,50,0.2); border-color: #ff3333; color: #ff3333; font-size: 12px; padding: 8px 15px;">Meteoro</button>
+                    </div>
+
+                    <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; width: 100%;">
+                        <div style="text-align: center; font-size: 12px; color: var(--accent); margin-bottom: 10px; font-weight: bold; text-transform: uppercase;">⚙️ Administrar Leaderboard ⚙️</div>
+                        <select id="admin-tab-select" onchange="renderAdminLB()" style="width: 100%; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--accent); padding: 6px; border-radius: 5px; margin-bottom: 10px; outline: none; font-size: 12px;">
+                            <option value="money">Top Dinheiro</option>
+                            <option value="cows">Top Vacas</option>
+                        </select>
+                        <div id="admin-lb-content" style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 5px;">
+                            </div>
+                    </div>
                 </div>
             </div>
 
@@ -735,7 +748,7 @@
             });
         }
 
-        // LEADERBOARD
+        // LEADERBOARD & ADMIN
         let userFlag = "un"; 
         fetch('https://get.geojs.io/v1/ip/country.json').then(res => res.json()).then(data => { if(data.country) userFlag = data.country.toLowerCase(); }).catch(e => {});
         let currentLBTab = 'money'; let lbData = JSON.parse(localStorage.getItem('MergeCow_LB')) || { money: [], cows: [] };
@@ -744,8 +757,11 @@
         window.switchLBTab = (tab) => {
             currentLBTab = tab; document.getElementById('tab-money').className = tab === 'money' ? 'btn-primary btn-active' : 'btn-primary';
             document.getElementById('tab-cows').className = tab === 'cows' ? 'btn-primary btn-active' : 'btn-primary';
-            document.getElementById('lb-score-header').innerText = tab === 'money' ? 'Fortuna ($)' : 'Vacas Totais'; renderLB();
+            document.getElementById('lb-score-header').innerText = tab === 'money' ? 'Fortuna ($)' : 'Vacas Totais'; 
+            renderLB();
+            if (isAdminAccessGranted) renderAdminLB();
         };
+
         function renderLB() {
             const tbody = document.getElementById('lb-body'); tbody.innerHTML = '';
             const list = lbData[currentLBTab];
@@ -757,16 +773,13 @@
                 tbody.appendChild(tr);
             });
         }
+
         window.submitScore = () => {
-            // Removemos o "ANON" e pegamos apenas o que o usuário digitou
             let nick = document.getElementById('lb-nickname').value.toUpperCase().trim(); 
-            
-            // Impede o envio se o campo estiver vazio
             if (!nick) {
                 alert("Por favor, digite um apelido para enviar sua pontuação!");
                 return;
             }
-
             if (nick.length > 5) nick = nick.substring(0, 5);
             
             if (currentLBTab === 'money') {
@@ -783,6 +796,7 @@
                 totalSpawnedCows = 0;
             }
             localStorage.setItem('MergeCow_LB', JSON.stringify(lbData)); updateUI(); renderLB();
+            if (isAdminAccessGranted) renderAdminLB();
         };
 
         // ==========================================
@@ -798,7 +812,8 @@
         }
 
         window.addEventListener('pointerdown', (event) => {
-            if(event.button !== 0 || event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT' || event.target.id === 'event-toggle') return;
+            // Previne que o click na UI dispare no 3D
+            if(event.button !== 0 || event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT' || event.target.tagName === 'SELECT' || event.target.closest('#event-panel')) return;
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1; mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
             raycaster.setFromCamera(mouse, camera);
             
@@ -861,7 +876,7 @@
         }
 
         // ==========================================
-        // OBJETOS DOS EVENTOS E EVENT LISTENERS UI
+        // OBJETOS DOS EVENTOS E EVENT LISTENERS UI (ADMIN)
         // ==========================================
         const meteor = { active: false, timer: 0, phase: 'none', clicks: 0, mesh: null, fireParts: [] };
         const ufoEvent = { active: false, timer: 0, phase: 'none', ufoGroup: null, beam: null, targetCow: null };
@@ -873,17 +888,86 @@
         const waterMesh = new THREE.Mesh(waterGeo, waterMat); waterMesh.position.y = GROUND_LEVEL - 5; scene.add(waterMesh);
         const water = { level: GROUND_LEVEL - 5, targetLevel: GROUND_LEVEL - 5 };
         
-        // Logica de Disparo da UI do Painel
+        let isAdminAccessGranted = false;
+
         document.getElementById('event-toggle').addEventListener('click', function() {
+            if (!isAdminAccessGranted) {
+                let code = prompt("CÓDIGO DE ADMINISTRADOR NECESSÁRIO:");
+                if (code !== "2203") {
+                    if (code !== null) alert("Código incorreto. Acesso bloqueado.");
+                    return;
+                }
+                isAdminAccessGranted = true;
+            }
+
             const btns = document.getElementById('event-buttons');
-            if(btns.style.display === 'none') {
+            if(btns.style.display === 'none' || btns.style.display === '') {
                 btns.style.display = 'flex';
-                this.innerText = '▲ Controle de Eventos ▲';
+                this.innerText = '▲ Painel de Controle (ADMIN) ▲';
+                renderAdminLB();
             } else {
                 btns.style.display = 'none';
                 this.innerText = '▼ Controle de Eventos ▼';
             }
         });
+
+        window.renderAdminLB = () => {
+            const container = document.getElementById('admin-lb-content');
+            const tab = document.getElementById('admin-tab-select').value;
+            container.innerHTML = '';
+            
+            if(!lbData || !lbData[tab] || lbData[tab].length === 0) {
+                container.innerHTML = '<div style="font-size:12px; color:gray; text-align:center;">Leaderboard Vazio</div>';
+                return;
+            }
+
+            lbData[tab].forEach((entry, idx) => {
+                let row = document.createElement('div');
+                row.style.display = 'flex'; row.style.gap = '5px'; row.style.alignItems = 'center'; row.style.justifyContent = 'space-between';
+                
+                let nameSpan = document.createElement('span');
+                nameSpan.style.width = '60px'; nameSpan.style.overflow = 'hidden'; nameSpan.style.fontSize = '12px'; nameSpan.style.color = 'white';
+                nameSpan.innerText = entry.name;
+                
+                let inputScore = document.createElement('input');
+                inputScore.type = 'number'; inputScore.value = entry.score;
+                inputScore.style.width = '70px'; inputScore.style.background = 'rgba(0,0,0,0.5)'; inputScore.style.color = 'var(--accent)'; inputScore.style.border = '1px solid var(--glass-border)'; inputScore.style.borderRadius = '4px'; inputScore.style.padding = '2px 5px';
+                
+                let btnSave = document.createElement('button');
+                btnSave.innerHTML = '💾'; btnSave.title = "Salvar"; btnSave.style.padding = '2px 5px'; btnSave.style.background = 'transparent'; btnSave.style.border = 'none'; btnSave.style.cursor = 'pointer';
+                btnSave.onclick = () => {
+                    let newScore = Number(inputScore.value);
+                    if(!isNaN(newScore)) {
+                        lbData[tab][idx].score = newScore;
+                        lbData[tab].sort((a,b) => b.score - a.score);
+                        localStorage.setItem('MergeCow_LB', JSON.stringify(lbData));
+                        renderLB();
+                        renderAdminLB();
+                    }
+                };
+
+                let btnDel = document.createElement('button');
+                btnDel.innerHTML = '❌'; btnDel.title = "Remover"; btnDel.style.padding = '2px 5px'; btnDel.style.background = 'transparent'; btnDel.style.border = 'none'; btnDel.style.cursor = 'pointer';
+                btnDel.onclick = () => {
+                    if(confirm('Tem certeza que deseja remover o jogador ' + entry.name + '?')) {
+                        lbData[tab].splice(idx, 1);
+                        localStorage.setItem('MergeCow_LB', JSON.stringify(lbData));
+                        renderLB();
+                        renderAdminLB();
+                    }
+                };
+
+                let acts = document.createElement('div');
+                acts.style.display = 'flex';
+                acts.appendChild(btnSave);
+                acts.appendChild(btnDel);
+
+                row.appendChild(nameSpan);
+                row.appendChild(inputScore);
+                row.appendChild(acts);
+                container.appendChild(row);
+            });
+        };
 
         function triggerManualEvent(startFunc) {
             if (meteor.active || ufoEvent.active || flood.active) return; // 1 evento por vez
@@ -1005,7 +1089,6 @@
                         scene.background.copy(originalFogColor); scene.fog.color.copy(originalFogColor); windMat.color.setHex(0xffffff);
                         let alien = createVoxelCow(1, 0, 0, true, 'alien'); alien.position.y = 15;
                         
-                        // Reseta a câmera para a posição inicial após o evento
                         camera.position.set(0, 45, 60);
                         controls.target.set(0, 0, 0);
                         controls.update();
@@ -1177,7 +1260,7 @@
 
                     if (cow.userData.isFed) {
                         cow.userData.poopTimer -= delta;
-                        let pTimeTarget = 30.0; // Agora todas as vacas (inclusive eventos) soltarão dejetos a cada 30 segundos
+                        let pTimeTarget = 30.0; 
                         if (cow.userData.poopTimer <= 0) { cow.userData.poopTimer = pTimeTarget; spawnPoop(cow); }
                         if(cow.userData.sparkles) {
                             let pArray = cow.userData.sparkles.geometry.attributes.position.array;
