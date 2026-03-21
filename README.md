@@ -28,9 +28,9 @@ O jogo conta com um ecossistema vivo onde eventos inesperados podem ocorrer:
 
 ## 🎮 Como Jogar (Controlos)
 
-* **Botão Esquerdo do Rato:** Clicar nos botões da UI, recolher dejetos (dinheiro) e **Arrastar** as vacas para fundi-las.
-* **Botão Direito do Rato:** Clicar e arrastar no cenário para **Orbitar/Rodar** a câmara.
-* **Scroll do Rato (Roda):** Fazer **Zoom In/Zoom Out** no mapa.
+* **Botão Esquerdo do Mouse:** Clicar nos botões da UI, recolher dejetos (dinheiro) e **Arrastar** as vacas para fundi-las.
+* **Botão Direito do Mouse:** Clicar e arrastar no cenário para **Orbitar/Rodar** a câmara.
+* **Scroll do Mouse (Roda):** Fazer **Zoom In/Zoom Out** no mapa.
 
 ---
 
