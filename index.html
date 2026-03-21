@@ -3,596 +3,1273 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Merge Cow - Web Edition</title>
+    <title>Merge Cow 3D - Voxel Edition</title>
     <style>
         /* ==========================================
-           ESTILOS (MODIFICADOS E OTIMIZADOS)
+           UI FUTURISTA (GLASSMORPHISM & MINIMALISTA)
            ========================================== */
         :root {
-            --bg-color: #2c3e50;
-            --pasture-color: #27ae60;
-            --ui-bg: #34495e;
-            --text-color: #ecf0f1;
-            --btn-color: #3498db;
-            --btn-hover: #2980b9;
-            --cow-size: 60px;
+            --glass-bg: rgba(20, 30, 40, 0.4);
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --accent: #00e5ff;
+            --accent-hover: #00b3cc;
+            --text-main: #ffffff;
+            --text-muted: #b0bec5;
         }
 
         body {
-            margin: 0; padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color); color: var(--text-color);
-            display: flex; flex-direction: column;
-            height: 100vh; overflow: hidden; user-select: none;
+            margin: 0; padding: 0; overflow: hidden;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0f172a;
+            user-select: none; -webkit-user-select: none;
+        }
+        canvas { display: block; width: 100vw; height: 100vh; outline: none; }
+
+        #start-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.95); z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: white; backdrop-filter: blur(10px); cursor: pointer; transition: opacity 0.5s ease;
+        }
+        #start-screen h1 { color: var(--accent); letter-spacing: 4px; font-size: 3em; margin-bottom: 10px; text-shadow: 0 0 20px rgba(0,229,255,0.5); }
+        #start-screen p { color: var(--text-muted); font-size: 1.2em; animation: pulseText 1.5s infinite; }
+        @keyframes pulseText { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        /* Evento Overlay Brightness */
+        #screen-flash {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: white; opacity: 0; pointer-events: none; z-index: 5;
+            transition: opacity 0.2s;
         }
 
-        #header {
-            background-color: var(--ui-bg); padding: 15px 20px;
-            display: flex; justify-content: space-between; align-items: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3); z-index: 10;
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
+            z-index: 10;
+        }
+        
+        .header, .footer { padding: 20px; pointer-events: auto; display: flex; gap: 15px; }
+        .header { justify-content: space-between; align-items: flex-start; }
+        .footer { justify-content: center; align-items: flex-end; padding-bottom: 30px; }
+
+        .glass-panel {
+            background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border); border-radius: 16px;
+            padding: 15px 25px; color: var(--text-main);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            display: flex; flex-direction: column; gap: 10px;
         }
 
-        #header h1 { margin: 0; font-size: 24px; }
-        .stats { font-size: 20px; font-weight: bold; display: flex; gap: 20px; align-items: center;}
-        .money { color: #f1c40f; }
-        .income { color: #2ecc71; font-size: 16px; }
+        .stats-box { text-align: left; min-width: 200px; }
+        .stats-box h1 { margin: 0 0 5px 0; font-size: 18px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 2px; }
+        .money { font-size: 28px; color: var(--accent); font-weight: 800; text-shadow: 0 0 10px rgba(0, 229, 255, 0.5); display: block; }
+        .income { font-size: 14px; color: #00e676; margin-top: 5px; font-weight: 600; display: block; }
+        .total-cows { font-size: 14px; color: #ffd700; margin-top: 5px; font-weight: 600; display: block; }
 
-        #game-area {
-            flex-grow: 1; background-color: var(--pasture-color);
-            position: relative; overflow: hidden;
-            border: 5px solid #2ecc71; border-radius: 10px;
-            margin: 10px; box-shadow: inset 0 0 20px rgba(0,0,0,0.2);
-        }
-
-        #footer {
-            background-color: var(--ui-bg); padding: 15px;
-            display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; z-index: 10;
-        }
+        .top-buttons { display: flex; flex-direction: column; gap: 10px; }
 
         button {
-            background-color: var(--btn-color); color: white; border: none;
-            padding: 12px 20px; font-size: 16px; font-weight: bold;
-            border-radius: 8px; cursor: pointer; transition: background 0.2s, transform 0.1s;
+            background: var(--glass-bg); backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border); color: var(--text-main);
+            padding: 12px 20px; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;
+            border-radius: 12px; cursor: pointer; transition: all 0.3s ease;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
         }
-        button:hover { background-color: var(--btn-hover); }
-        button:active { transform: scale(0.95); }
-        button:disabled { background-color: #7f8c8d; cursor: not-allowed; transform: none; }
-        
-        .btn-danger { background-color: #e74c3c; }
-        .btn-danger:hover { background-color: #c0392b; }
-        .btn-warning { background-color: #f39c12; }
-        .btn-warning:hover { background-color: #d68910; }
-        .btn-success { background-color: #2ecc71; color: #fff;}
-        .btn-success:hover { background-color: #27ae60;}
+        button:hover { background: rgba(255,255,255,0.1); border-color: var(--accent); box-shadow: 0 0 15px rgba(0, 229, 255, 0.3); transform: translateY(-2px); }
+        button:active { transform: translateY(1px); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; border-color: transparent; box-shadow: none; }
 
-        .cow {
-            width: var(--cow-size); height: var(--cow-size); background-color: white;
-            border: 3px solid #333; border-radius: 50%; position: absolute;
-            display: flex; justify-content: center; align-items: center;
-            font-size: 30px; cursor: grab; box-shadow: 0 5px 10px rgba(0,0,0,0.4);
-            transition: transform 0.1s; touch-action: none;
-        }
-        .cow:active { cursor: grabbing; transform: scale(1.1); z-index: 100 !important; }
+        .btn-primary { background: rgba(0, 229, 255, 0.1); border-color: var(--accent); color: var(--accent); }
+        .btn-primary:hover { background: var(--accent); color: #000; box-shadow: 0 0 20px var(--accent); }
+        .btn-large { padding: 18px 40px; font-size: 18px; border-radius: 20px; }
+        .btn-active { background: var(--accent); color: #000; }
+        .btn-collection { background: rgba(255, 215, 0, 0.1); border-color: #ffd700; color: #ffd700; margin-top: 10px; width: 100%; }
+        .btn-collection:hover { background: #ffd700; color: #000; box-shadow: 0 0 20px #ffd700; }
 
-        .cow-level {
-            position: absolute; bottom: -5px; right: -5px; background-color: #e74c3c;
-            color: white; border-radius: 50%; width: 24px; height: 24px;
-            font-size: 14px; font-weight: bold; display: flex;
-            justify-content: center; align-items: center; border: 2px solid white;
+        #controls-hint {
+            position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); color: rgba(255,255,255,0.7);
+            padding: 8px 20px; border-radius: 20px; font-size: 12px; pointer-events: none; letter-spacing: 1px;
         }
 
-        .floating-text {
-            position: absolute; color: #f1c40f; font-weight: bold; font-size: 20px;
-            pointer-events: none; animation: floatUp 1s ease-out forwards;
-            text-shadow: 1px 1px 2px black; z-index: 50;
-        }
-
-        @keyframes floatUp {
-            0% { opacity: 1; transform: translateY(0) scale(1); }
-            100% { opacity: 0; transform: translateY(-40px) scale(1.5); }
-        }
-
-        #btn-leaderboard-view {
-            position: absolute; bottom: 90px; right: 20px;
-            background-color: #9b59b6; border-radius: 50px; padding: 15px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 20;
-        }
-        #btn-settings {
-            background-color: #34495e; border: 2px solid #7f8c8d; border-radius: 50px;
-            padding: 10px 15px; z-index: 20; font-size: 16px;
-        }
-
-        /* Modais */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); display: none;
-            justify-content: center; align-items: center; z-index: 1000;
+            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px);
+            display: none; justify-content: center; align-items: center; z-index: 100; pointer-events: auto;
         }
         .modal-content {
-            background: var(--ui-bg); padding: 30px; border-radius: 10px;
-            text-align: center; max-width: 400px; width: 90%;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5); border: 2px solid var(--btn-color);
+            background: rgba(20, 30, 45, 0.85); border: 1px solid var(--accent); border-radius: 24px;
+            padding: 30px; width: 90%; max-width: 500px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            text-align: center; color: white; max-height: 85vh; overflow-y: auto;
         }
-        .modal-content h2 { margin-top: 0; color: #f1c40f; }
-        .modal-content input {
-            padding: 10px; font-size: 18px; width: 80%; text-align: center;
-            text-transform: uppercase; margin: 15px 0; border-radius: 5px; border: none; outline: none;
-        }
-        .modal-buttons { display: flex; justify-content: center; gap: 10px; margin-top: 15px; }
-
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; color: white; }
-        th, td { padding: 10px; border-bottom: 1px solid #7f8c8d; }
-        th { background: #2c3e50; }
-        tr:nth-child(1) td { color: #f1c40f; font-weight: bold; font-size: 22px; } 
-        tr:nth-child(2) td { color: #bdc3c7; font-weight: bold; } 
-        tr:nth-child(3) td { color: #cd7f32; font-weight: bold; } 
-        .timer-text { color: #e74c3c; font-weight: bold; font-size: 14px; margin-top: 15px; }
+        /* Scrollbar custom */
+        .modal-content::-webkit-scrollbar { width: 8px; }
+        .modal-content::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+        .modal-content h2 { color: var(--accent); margin-top: 0; font-weight: 300; letter-spacing: 2px; }
         
-        .setting-row {
-            display: flex; justify-content: space-between; align-items: center;
-            margin: 15px 0; font-size: 18px;
+        .modal-buttons { display: flex; justify-content: center; gap: 15px; margin-top: 25px; }
+        .floating-text {
+            position: absolute; color: #00e676; font-weight: bold; font-size: 24px;
+            pointer-events: none; animation: floatUp 1s ease-out forwards;
+            text-shadow: 0 0 10px rgba(0,230,118,0.5); z-index: 50;
         }
+        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-50px) scale(1.5); } }
+
+        /* Leaderboard */
+        .lb-tabs { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
+        .lb-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        .lb-table th { color: var(--accent); border-bottom: 2px solid var(--accent); padding: 10px; }
+        .lb-table td { padding: 10px; border-bottom: 1px solid var(--glass-border); vertical-align: middle; }
+        .lb-input-group { display: flex; justify-content: center; gap: 10px; margin-top: 20px; align-items: center; }
+        .lb-input-group input { background: rgba(0,0,0,0.4); border: 1px solid var(--accent); color: white; padding: 10px; border-radius: 8px; width: 100px; text-align: center; font-weight: bold; text-transform: uppercase; outline: none; }
+        .lb-input-group input:focus { box-shadow: 0 0 10px var(--accent); }
+
+        /* Collection Grid */
+        .cow-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 15px; margin-top: 20px; }
+        .cow-card { 
+            background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 12px; 
+            padding: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: all 0.3s; 
+        }
+        .cow-card canvas { width: 64px; height: 64px; margin-bottom: 8px; }
+        .cow-card.locked canvas { filter: brightness(0) blur(2px); opacity: 0.5; }
+        .cow-card.locked p { opacity: 0.5; }
+        .cow-card p { margin: 0; font-size: 12px; font-weight: bold; color: var(--text-main); }
+        .cow-card .level { font-size: 10px; color: var(--text-muted); }
+
     </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
 </head>
 <body>
 
-    <div id="header">
-        <h1>🐄 Merge Cow</h1>
-        <button id="btn-settings" onclick="openModal('modal-settings')">⚙️ Conf</button>
-        <div class="stats">
-            <span class="money">💰 $<span id="money-display">200</span></span>
-            <span class="income">+$<span id="income-display">0</span>/3s</span>
-        </div>
+    <div id="screen-flash"></div>
+
+    <div id="start-screen">
+        <h1>MERGE COW 3D</h1>
+        <p>CLIQUE NA TELA PARA INICIAR</p>
     </div>
 
-    <div id="game-area"></div>
+    <div id="ui-layer">
+        <div class="header">
+            <div class="glass-panel stats-box">
+                <h1>Painel de Controle</h1>
+                <span class="money">$<span id="money-display">200</span></span>
+                <span class="income">+ $<span id="income-display">0</span> / 3s</span>
+                <span class="total-cows">Vacas Spawnadas: <span id="cows-display">0</span></span>
+                <button class="btn-collection" onclick="openCollection()">📖 Coleção</button>
+            </div>
 
-    <button id="btn-leaderboard-view" onclick="openLeaderboard()">🏆 Placar</button>
+            <div id="event-panel" class="glass-panel" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); pointer-events: auto; padding: 10px 20px; align-items: center; z-index: 50; transition: all 0.3s;">
+                <div id="event-toggle" style="cursor: pointer; font-weight: 800; color: var(--accent); letter-spacing: 1px; font-size: 14px; text-transform: uppercase;">▼ Controle de Eventos ▼</div>
+                <div id="event-buttons" style="display: none; gap: 10px; margin-top: 15px;">
+                    <button id="btn-ev-flood" class="btn-primary" style="font-size: 12px; padding: 8px 15px; border-color: #00e5ff; color: #00e5ff;">Inundação</button>
+                    <button id="btn-ev-ufo" class="btn-primary" style="font-size: 12px; padding: 8px 15px; border-color: #ffd700; color: #ffd700;">OVNI</button>
+                    <button id="btn-ev-meteor" class="btn-primary" style="background: rgba(255,50,50,0.2); border-color: #ff3333; color: #ff3333; font-size: 12px; padding: 8px 15px;">Meteoro</button>
+                </div>
+            </div>
 
-    <div id="footer">
-        <button id="btn-submit-lb" class="btn-warning" onclick="openSubmitModal()">Submeter ao Ranking</button>
-        <button id="btn-buy" onclick="buyCow()">Comprar Vaca ($<span id="price-display">50</span>)</button>
-        <button id="btn-auto-fuse" onclick="toggleAutoFuse()">🤖 Auto-Fuse: OFF</button>
-        <button class="btn-danger" onclick="confirmResetGame()">Resetar Progresso</button>
-    </div>
-
-    <div id="modal-submit" class="modal-overlay">
-        <div class="modal-content">
-            <h2>Enviar para o Placar Global</h2>
-            <p>Seu dinheiro atual: <strong id="lbl-submit-money"></strong></p>
-            <p><strong>Atenção:</strong> Ao enviar, todas as suas vacas e saldos serão <strong>resetados</strong>.</p>
-            <input type="text" id="player-name" maxlength="5" placeholder="NOME (5 letras)">
-            <div class="modal-buttons">
-                <button class="btn-danger" onclick="closeModal('modal-submit')">Cancelar</button>
-                <button class="btn-warning" onclick="processSubmitLeaderboard()">Enviar e Resetar</button>
+            <div class="top-buttons">
+                <button onclick="document.getElementById('modal-settings').style.display='flex'">⚙️ Settings</button>
+                <button onclick="openLeaderboard()">🏆 Leaderboard</button>
+                <button id="btn-auto-fuse" onclick="toggleAutoFuse()">🤖 Auto-Fuse: OFF</button>
             </div>
         </div>
+        
+        <div id="controls-hint">ESQUERDO: Arrastar | DIREITO: Orbitar | SCROLL: Zoom | CLIQUE NAS FEZES: Bônus!</div>
+
+        <div class="footer">
+            <button id="btn-buy" class="btn-primary btn-large">
+                COMPRAR VACA <span style="opacity:0.7; font-size:14px; margin-left:10px;">($<span id="price-display">50</span>)</span>
+            </button>
+        </div>
     </div>
 
-    <div id="modal-leaderboard" class="modal-overlay">
-        <div class="modal-content" style="max-width: 500px;">
-            <h2>🏆 Placar Global (Top 10)</h2>
-            <div id="lb-content">Carregando...</div>
-            <div class="timer-text">Próximo reset (Banco de Dados/DB): <span id="lb-timer">00:00:00</span></div>
+    <div id="modal-collection" class="modal-overlay">
+        <div class="modal-content" style="max-width: 600px;">
+            <h2>COLEÇÃO DE ESPÉCIES</h2>
+            <div class="cow-grid" id="collection-grid"></div>
             <div class="modal-buttons">
-                <button onclick="closeModal('modal-leaderboard')">Fechar</button>
+                <button onclick="document.getElementById('modal-collection').style.display='none'">Fechar</button>
             </div>
         </div>
     </div>
 
     <div id="modal-settings" class="modal-overlay">
         <div class="modal-content">
-            <h2>Configurações</h2>
-            <div class="setting-row">
-                <span>🎵 Música de Fundo:</span>
-                <button id="btn-toggle-bgm" class="btn-danger" onclick="toggleBGM()">Desativada</button>
+            <h2>CONFIGURAÇÕES DO SISTEMA</h2>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin: 20px 0;">
+                <span>Renderizar Sombras:</span>
+                <button id="btn-shadows" class="btn-primary" onclick="toggleShadows()">LIGADO</button>
             </div>
-            <div class="setting-row">
-                <span>🔊 Efeitos Sonoros:</span>
-                <button id="btn-toggle-sfx" onclick="toggleSFX()">Ativados</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin: 20px 0;">
+                <span>Efeitos Sonoros (SFX):</span>
+                <button id="btn-sfx" class="btn-primary" onclick="toggleSFX()">LIGADO</button>
             </div>
             <div class="modal-buttons">
-                <button onclick="closeModal('modal-settings')">Fechar</button>
+                <button class="btn-primary" style="background: rgba(255,50,50,0.2); border-color: #ff3333; color: #ff3333;" onclick="hardResetGame()">Format C: (Reset)</button>
+                <button onclick="this.closest('.modal-overlay').style.display='none'">Fechar</button>
             </div>
         </div>
     </div>
 
-    <script>
+    <div id="modal-leaderboard" class="modal-overlay">
+        <div class="modal-content">
+            <h2>LEADERBOARD GLOBAL</h2>
+            <div class="lb-tabs">
+                <button id="tab-money" class="btn-primary btn-active" onclick="switchLBTab('money')">Top Dinheiro</button>
+                <button id="tab-cows" class="btn-primary" onclick="switchLBTab('cows')">Top Vacas</button>
+            </div>
+            <table class="lb-table">
+                <thead><tr><th>#</th><th>País</th><th>Nick</th><th id="lb-score-header">Score</th></tr></thead>
+                <tbody id="lb-body"></tbody>
+            </table>
+            <div class="lb-input-group">
+                <input type="text" id="lb-nickname" maxlength="5" placeholder="NICK">
+                <button class="btn-primary" onclick="submitScore()">ENVIAR DA ABA ATUAL</button>
+            </div>
+            <div class="modal-buttons">
+                <button onclick="document.getElementById('modal-leaderboard').style.display='none'">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
         // ==========================================
-        // 1. BACKEND API MODULE (Preparado para Supabase)
+        // LÓGICA CORE E DADOS
         // ==========================================
-        const BackendAPI = {
-            async saveGameData(data) {
-                localStorage.setItem("MergeCowSave_v1", JSON.stringify(data));
-            },
-            async loadGameData() {
-                let saved = localStorage.getItem("MergeCowSave_v1");
-                return saved ? JSON.parse(saved) : null;
-            },
-            async submitToGlobalLeaderboard(playerData) {
-                let lbData = JSON.parse(localStorage.getItem("MockGlobalLeaderboard") || "[]");
-                let existing = lbData.find(p => p.name === playerData.name);
-                if (existing) {
-                    if (playerData.money > existing.money) existing.money = playerData.money;
-                } else {
-                    lbData.push(playerData);
+        const PRECO_INICIAL = 50; const MULTIPLICADOR_CUSTO = 1.05; const SALDO_INICIAL = 200;
+        const INCOME_PER_LEVEL = [0, 2, 10, 30, 80, 200, 450, 1000, 2200, 5000, 12000];
+        const GROUND_LEVEL = 1.0; 
+        
+        let money = SALDO_INICIAL; let totalCompras = 0; let totalSpawnedCows = 0; let cows = []; let nextCowId = 1;
+        let autoFuseActive = false; let shadowsEnabled = true;
+
+        const COW_COLORS = [
+            0xf5f5dc, 0xbdc3c7, 0xffd700, 0xff8c00, 0xff3333, 0x9b59b6, 0x00e5ff, 0x00e676, 0x111111, 0xff00ff
+        ];
+
+        let unlockedCows = JSON.parse(localStorage.getItem('MergeCow_Collection')) || { 1: true };
+
+        // ==========================================
+        // SISTEMA DE FÍSICA E COLISÃO (Mundo)
+        // ==========================================
+        const obstacles = [
+            { type: 'box', minX: -9, maxX: 13, minZ: -29, maxZ: -11 }, 
+            { type: 'circle', x: -25, z: -10, r: 3.5 }, 
+            { type: 'circle', x: -20, z: -18, r: 3.5 },
+            { type: 'circle', x: 25, z: 5, r: 3.5 },
+            { type: 'circle', x: 28, z: -8, r: 3.5 },
+            { type: 'circle', x: -15, z: 25, r: 3.5 }
+        ];
+
+        function isColliding(x, z) {
+            if (Math.sqrt(x*x + z*z) > 28) return true; 
+            for (let obs of obstacles) {
+                if (obs.type === 'box') {
+                    if (x > obs.minX && x < obs.maxX && z > obs.minZ && z < obs.maxZ) return true;
+                } else if (obs.type === 'circle') {
+                    if (Math.sqrt((x-obs.x)**2 + (z-obs.z)**2) < obs.r) return true;
                 }
-                lbData.sort((a, b) => b.money - a.money);
-                localStorage.setItem("MockGlobalLeaderboard", JSON.stringify(lbData.slice(0, 10)));
+            }
+            return false;
+        }
+
+        // ==========================================
+        // SETUP DO THREE.JS
+        // ==========================================
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB);
+        const originalFogColor = new THREE.Color(0x87CEEB);
+        scene.fog = new THREE.FogExp2(originalFogColor, 0.008);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 45, 60);
+        let baseCameraPos = camera.position.clone();
+        let cameraShake = 0;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; controls.maxPolarAngle = Math.PI / 2.2;
+        controls.minDistance = 20; controls.maxDistance = 120;
+        controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
+
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.5); scene.add(hemiLight);
+        
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight.position.set(30, 50, -30); dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048; dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.near = 0.5; dirLight.shadow.camera.far = 150;
+        dirLight.shadow.camera.left = -50; dirLight.shadow.camera.right = 50;
+        dirLight.shadow.camera.top = 50; dirLight.shadow.camera.bottom = -50;
+        dirLight.shadow.bias = -0.001;
+        scene.add(dirLight);
+
+        // ==========================================
+        // ÁUDIO E SINTETIZADORES COMPLEXOS
+        // ==========================================
+        window.sfxEnabled = true;
+        let audioContextStarted = false;
+        const listener = new THREE.AudioListener(); camera.add(listener);
+        const audioCtx = listener.context;
+        const continuousSounds = []; 
+
+        function createNoiseBuffer(duration, type='white', soften=false) {
+            const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * duration, audioCtx.sampleRate);
+            const output = buffer.getChannelData(0);
+            for (let i = 0; i < buffer.length; i++) {
+                let noise = Math.random() * 2 - 1; if (soften) noise *= 0.2;
+                output[i] = (type === 'brown' && i > 0) ? (output[i-1]*0.95 + noise*0.05) : noise; 
+            }
+            return buffer;
+        }
+
+        const grassStepBuffer = createNoiseBuffer(0.1, 'brown', true); 
+        const leavesBuffer = createNoiseBuffer(2.0, 'brown', true);   
+        const windBuffer = createNoiseBuffer(5.0, 'brown', true);     
+        const rainBuffer = createNoiseBuffer(2.0, 'white', true);
+
+        const windSound = new THREE.Audio(listener);
+        windSound.setBuffer(windBuffer); windSound.setLoop(true); windSound.setVolume(0.08);
+        continuousSounds.push(windSound);
+        
+        const rainSound = new THREE.Audio(listener);
+        rainSound.setBuffer(rainBuffer); rainSound.setLoop(true); rainSound.setVolume(0);
+        continuousSounds.push(rainSound);
+
+        function playSynthTone(freq, type, duration, vol=0.1) {
+            if(!window.sfxEnabled || !audioContextStarted || audioCtx.state !== 'running') return;
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain); gain.connect(listener.getInput());
+            osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + duration);
+        }
+
+        const SFX = {
+            buy: () => { playSynthTone(800, 'sine', 0.1, 0.1); setTimeout(()=>playSynthTone(1200, 'sine', 0.2, 0.15), 100); },
+            merge: () => { [300, 400, 500, 600, 800].forEach((f,i) => setTimeout(()=>playSynthTone(f, 'square', 0.2, 0.05), i*60)); },
+            poopCollect: () => { playSynthTone(400, 'sine', 0.1, 0.2); setTimeout(()=>playSynthTone(600, 'sine', 0.2, 0.2), 50); },
+            click: () => { playSynthTone(1500, 'square', 0.05, 0.1); },
+            meteorHit: () => { 
+                if(!window.sfxEnabled) return;
+                const buffer = createNoiseBuffer(2.0, 'brown');
+                const source = audioCtx.createBufferSource(); source.buffer = buffer;
+                const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 400;
+                const gain = audioCtx.createGain(); gain.gain.setValueAtTime(1.0, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 2.0);
+                source.connect(filter); filter.connect(gain); gain.connect(listener.getInput()); source.start();
             },
-            async fetchGlobalLeaderboard() {
-                return JSON.parse(localStorage.getItem("MockGlobalLeaderboard") || "[]");
+            thunder: () => { 
+                if(!window.sfxEnabled) return;
+                const buffer = createNoiseBuffer(3.0, 'brown'); const source = audioCtx.createBufferSource(); source.buffer = buffer;
+                const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.setValueAtTime(800, audioCtx.currentTime); filter.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 3.0);
+                const gain = audioCtx.createGain(); gain.gain.setValueAtTime(0.8, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 3.0);
+                source.connect(filter); filter.connect(gain); gain.connect(listener.getInput()); source.start();
             },
-            async resetLeaderboardCronCheck() {
-                const now = new Date();
-                const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-                const brTime = new Date(utc + (3600000 * -3)); 
-                if (brTime.getHours() === 23 && brTime.getMinutes() === 59 && brTime.getSeconds() === 59) {
-                    localStorage.removeItem("MockGlobalLeaderboard");
-                }
+            moo: () => {
+                if(!window.sfxEnabled) return;
+                const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(250, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 1.0);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.0);
+                osc.connect(gain); gain.connect(listener.getInput()); osc.start(); osc.stop(audioCtx.currentTime + 1.0);
+            },
+            cough: () => {
+                if(!window.sfxEnabled) return;
+                const buffer = createNoiseBuffer(0.3, 'white'); const source = audioCtx.createBufferSource(); source.buffer = buffer;
+                const filter = audioCtx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 1000;
+                const gain = audioCtx.createGain(); gain.gain.setValueAtTime(0.3, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                source.connect(filter); filter.connect(gain); gain.connect(listener.getInput()); source.start();
             }
         };
 
-        // ==========================================
-        // SISTEMA DE ÁUDIO
-        // ==========================================
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        let sfxEnabled = true; let bgmEnabled = false;
-
-        function playTone(freq, type, duration) {
-            if (!sfxEnabled) return;
-            let osc = audioCtx.createOscillator();
-            let gain = audioCtx.createGain();
-            osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.start(); osc.stop(audioCtx.currentTime + duration);
-        }
-
-        function playBuySound() { playTone(800, 'sine', 0.1); setTimeout(() => playTone(1200, 'sine', 0.15), 100); }
-        function playMergeSound() { playTone(300, 'square', 0.1); setTimeout(() => playTone(500, 'square', 0.1), 100); setTimeout(() => playTone(800, 'square', 0.2), 200); }
-        function playErrorSound() { playTone(150, 'sawtooth', 0.3); }
-
-        const playlist = [
-            "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3",
-            "https://cdn.pixabay.com/download/audio/2022/04/27/audio_307fa21301.mp3?filename=chill-lofi-song-8444.mp3"
-        ];
-        let currentTrack = 0; let bgmAudio = new Audio(playlist[currentTrack]);
-        bgmAudio.volume = 0.2;
-        bgmAudio.addEventListener('ended', () => {
-            currentTrack = (currentTrack + 1) % playlist.length;
-            bgmAudio.src = playlist[currentTrack]; bgmAudio.play();
+        document.getElementById('start-screen').addEventListener('click', function() {
+            this.style.opacity = '0'; setTimeout(() => this.style.display = 'none', 500);
+            if (!audioContextStarted) {
+                audioContextStarted = true; if(audioCtx.state === 'suspended') audioCtx.resume();
+                if(window.sfxEnabled) {
+                    windSound.play(); rainSound.play();
+                    continuousSounds.forEach(s => { if(!s.isPlaying && s !== windSound && s !== rainSound) s.play(); });
+                }
+            }
         });
 
-        function toggleBGM() {
-            bgmEnabled = !bgmEnabled;
-            const btn = document.getElementById('btn-toggle-bgm');
-            if (bgmEnabled) {
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                bgmAudio.play().catch(e => console.log("Áudio bloqueado"));
-                btn.innerText = "Ativada"; btn.className = "btn-success";
+        // ==========================================
+        // CONSTRUÇÃO PROCEDURAL
+        // ==========================================
+        const mapGroup = new THREE.Group(); scene.add(mapGroup);
+        const matGrassBase = new THREE.MeshStandardMaterial({ color: 0x388e3c, roughness: 0.9, flatShading: true });
+        const matDirt = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 1.0, flatShading: true });
+        const matWood = new THREE.MeshStandardMaterial({ color: 0x795548, roughness: 0.8, flatShading: true });
+        const matBarnRed = new THREE.MeshStandardMaterial({ color: 0xc62828, flatShading: true });
+        const matRoof = new THREE.MeshStandardMaterial({ color: 0x263238, flatShading: true });
+
+        function buildFloatingIsland() {
+            const island = new THREE.Mesh(new THREE.CylinderGeometry(35, 25, 10, 8), matDirt);
+            island.position.y = -5; island.receiveShadow = true; mapGroup.add(island);
+            const boxGeo = new THREE.BoxGeometry(4, 4, 4);
+            for(let i=0; i<40; i++) {
+                let angle = Math.random() * Math.PI * 2; let radius = 30 + Math.random() * 5;
+                let block = new THREE.Mesh(boxGeo, matDirt); block.position.set(Math.cos(angle)*radius, -3 - Math.random()*5, Math.sin(angle)*radius);
+                block.rotation.set(Math.random(), Math.random(), Math.random()); block.receiveShadow = true; block.castShadow = true; mapGroup.add(block);
+            }
+            const grassTop = new THREE.Mesh(new THREE.CylinderGeometry(35, 35, 1, 16), matGrassBase);
+            grassTop.position.y = 0.5; grassTop.receiveShadow = true; mapGroup.add(grassTop);
+            return new THREE.Plane(new THREE.Vector3(0, 1, 0), GROUND_LEVEL);
+        }
+        const intersectionPlane = buildFloatingIsland();
+
+        // ==========================================
+        // SISTEMA DE GRAMA REATIVA, VENTO E CHUVA
+        // ==========================================
+        const GRASS_COUNT = 8000;
+        const grassInstanced = new THREE.InstancedMesh(new THREE.BoxGeometry(0.15, 0.4, 0.15).translate(0, 0.2, 0), new THREE.MeshStandardMaterial({ color: 0x4caf50, roughness: 0.8, flatShading: true }), GRASS_COUNT);
+        grassInstanced.receiveShadow = true; grassInstanced.castShadow = true; mapGroup.add(grassInstanced);
+
+        const grassData = [];
+        const _dummy = new THREE.Object3D(); const _position = new THREE.Vector3();
+        const _quaternion = new THREE.Quaternion(); const _scale = new THREE.Vector3(); const _euler = new THREE.Euler();
+
+        for(let i = 0; i < GRASS_COUNT; i++) {
+            let x, z, r, theta; let valid = false;
+            while(!valid) {
+                r = Math.sqrt(Math.random()) * 34; theta = Math.random() * 2 * Math.PI; x = r * Math.cos(theta); z = r * Math.sin(theta); valid = true;
+                if (x > -10 && x < 14 && z > -30 && z < -10) valid = false;
+                for (let obs of obstacles) { if (obs.type === 'circle' && Math.sqrt((x-obs.x)**2 + (z-obs.z)**2) < obs.r + 0.5) valid = false; }
+            }
+            let baseScale = 0.5 + Math.random() * 0.7; grassData.push({ x, z, baseScale, squashTimer: 0, popTimer: 0, popping: false, eaten: false });
+            _position.set(x, GROUND_LEVEL, z); _euler.set(0, Math.random() * Math.PI, 0); _quaternion.setFromEuler(_euler); _scale.set(baseScale, baseScale, baseScale);
+            _dummy.matrix.compose(_position, _quaternion, _scale); grassInstanced.setMatrixAt(i, _dummy.matrix);
+        }
+
+        const windGroup = new THREE.Group(); scene.add(windGroup);
+        const windMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4, side: THREE.DoubleSide });
+        const windLines = [];
+        for(let i = 0; i < 20; i++) {
+            const line = new THREE.Mesh(new THREE.BoxGeometry(5 + Math.random()*8, 0.04, 0.04), windMat);
+            line.userData = { speed: 15 + Math.random() * 20, x: (Math.random() - 0.5) * 80, y: 1.5 + Math.random() * 10, z: (Math.random() - 0.5) * 80, offset: Math.random() * 100 };
+            line.position.set(line.userData.x, line.userData.y, line.userData.z); windGroup.add(line); windLines.push(line);
+        }
+
+        // ==========================================
+        // SISTEMA DE FEZES E AURA
+        // ==========================================
+        const poopGroup = new THREE.Group(); scene.add(poopGroup);
+        const matPoop = new THREE.MeshStandardMaterial({ color: 0x4b3621, roughness: 1.0, flatShading: true });
+        
+        function spawnPoop(cow) {
+            const poop = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5, 0), matPoop);
+            let backX = cow.position.x - Math.sin(cow.rotation.y) * 2; let backZ = cow.position.z - Math.cos(cow.rotation.y) * 2;
+            poop.position.set(backX, cow.position.y + 0.2, backZ); poop.rotation.set(Math.random(), Math.random(), Math.random()); poop.castShadow = true;
+            let currentIncome = cow.userData.isFed ? (INCOME_PER_LEVEL[cow.userData.level]||500) * 2 : (INCOME_PER_LEVEL[cow.userData.level]||500);
+            if(cow.userData.type === 'alien') currentIncome = 500000; if(cow.userData.type === 'flood') currentIncome = 100000;
+            poop.userData = { value: currentIncome * 3, type: 'poop' };
+            poopGroup.add(poop); poop.scale.set(0.1, 0.1, 0.1);
+            let growTimer = setInterval(() => { poop.scale.addScalar(0.1); if (poop.scale.x >= 1) clearInterval(growTimer); }, 30);
+        }
+
+        function addAura(cow, colorHex=0xffffaa) {
+            if (cow.userData.hasAura) return; cow.userData.hasAura = true;
+            const pGeo = new THREE.BufferGeometry(); const pPos = new Float32Array(20 * 3);
+            for(let i=0; i<20; i++) { pPos[i*3] = (Math.random() - 0.5) * 4; pPos[i*3+1] = Math.random() * 3; pPos[i*3+2] = (Math.random() - 0.5) * 5; }
+            pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+            const sparkles = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: colorHex, size: 0.2, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending }));
+            sparkles.position.y = 1.0; cow.add(sparkles); cow.userData.sparkles = sparkles;
+        }
+
+        // ==========================================
+        // ÁRVORES, CELEIRO MELHORADO E CERCA
+        // ==========================================
+        function buildBarn() {
+            const barn = new THREE.Group();
+            
+            // Body principal
+            const body = new THREE.Mesh(new THREE.BoxGeometry(14, 12, 16), matBarnRed); 
+            body.position.y = 6; body.castShadow = true; body.receiveShadow = true; barn.add(body);
+            
+            // Teto
+            const roof = new THREE.Mesh(new THREE.CylinderGeometry(9.5, 9.5, 17, 3), matRoof); 
+            roof.rotation.z = Math.PI / 2; roof.rotation.x = Math.PI / 2; 
+            roof.position.set(0, 14, 0); roof.castShadow = true; barn.add(roof);
+
+            // Porta do celeiro
+            const matWhite = new THREE.MeshStandardMaterial({color: 0xffffff, flatShading: true});
+            const doorFrame = new THREE.Mesh(new THREE.BoxGeometry(6, 8, 0.5), matWhite);
+            doorFrame.position.set(0, 4, 8); barn.add(doorFrame);
+            const doorDark = new THREE.Mesh(new THREE.BoxGeometry(5, 7.5, 0.6), matWood);
+            doorDark.position.set(0, 3.75, 8); barn.add(doorDark);
+
+            // Janela do Sótão
+            const loftFrame = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 0.5), matWhite);
+            loftFrame.position.set(0, 10, 8.1); barn.add(loftFrame);
+            const loftDark = new THREE.Mesh(new THREE.BoxGeometry(3, 2, 0.6), new THREE.MeshStandardMaterial({color: 0x111111}));
+            loftDark.position.set(0, 10, 8.1); barn.add(loftDark);
+
+            // Silo lateral metálico
+            const matSilo = new THREE.MeshStandardMaterial({color: 0xcccccc, metalness: 0.5, roughness: 0.5, flatShading: true});
+            const silo = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 18, 12), matSilo);
+            silo.position.set(10, 9, 0); silo.castShadow = true; barn.add(silo);
+            const siloRoof = new THREE.Mesh(new THREE.SphereGeometry(4, 12, 12, 0, Math.PI*2, 0, Math.PI/2), matRoof);
+            siloRoof.position.set(10, 18, 0); barn.add(siloRoof);
+
+            barn.position.set(0, 1, -20); mapGroup.add(barn);
+        } buildBarn();
+
+        function buildFence() {
+            const fenceGroup = new THREE.Group();
+            const radius = 30; 
+            const segments = 36;
+            const angleStep = (Math.PI * 2) / segments;
+            
+            for(let i = 0; i < segments; i++) {
+                let angle = i * angleStep;
+                let x = Math.cos(angle) * radius;
+                let z = Math.sin(angle) * radius;
+                
+                let post = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3, 0.5), matWood);
+                post.position.set(x, 2.5, z);
+                post.castShadow = true; post.receiveShadow = true;
+                post.lookAt(0, 2.5, 0);
+                fenceGroup.add(post);
+
+                let nextAngle = (i + 1) * angleStep;
+                let nx = Math.cos(nextAngle) * radius;
+                let nz = Math.sin(nextAngle) * radius;
+                
+                let dist = Math.sqrt((nx-x)**2 + (nz-z)**2);
+                let plank1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, dist + 0.2), matWood);
+                plank1.position.set((x+nx)/2, 3.2, (z+nz)/2);
+                plank1.lookAt(nx, 3.2, nz);
+                plank1.castShadow = true;
+                fenceGroup.add(plank1);
+
+                let plank2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, dist + 0.2), matWood);
+                plank2.position.set((x+nx)/2, 1.8, (z+nz)/2);
+                plank2.lookAt(nx, 1.8, nz);
+                plank2.castShadow = true;
+                fenceGroup.add(plank2);
+            }
+            mapGroup.add(fenceGroup);
+        } buildFence();
+
+        function buildTree(x, z) {
+            const tree = new THREE.Group();
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.8, 3, 5), matWood); trunk.position.y = 1.5; trunk.castShadow = true; tree.add(trunk);
+            const matLeaves = new THREE.MeshStandardMaterial({color: 0x2e7d32, flatShading:true});
+            for(let i=0; i<3; i++) { let leaves = new THREE.Mesh(new THREE.ConeGeometry(3 - i*0.5, 4, 6), matLeaves); leaves.position.y = 3.5 + i*1.5; leaves.rotation.y = Math.random(); leaves.castShadow = true; tree.add(leaves); }
+            const leavesSound = new THREE.PositionalAudio(listener); leavesSound.setBuffer(leavesBuffer); leavesSound.setRefDistance(2); leavesSound.setMaxDistance(15); leavesSound.setLoop(true); leavesSound.setVolume(0.2); tree.add(leavesSound); continuousSounds.push(leavesSound);
+            tree.position.set(x, 1, z); mapGroup.add(tree);
+        } buildTree(-25, -10); buildTree(-20, -18); buildTree(25, 5); buildTree(28, -8); buildTree(-15, 25);
+
+        // ==========================================
+        // VACA VOXEL 3D
+        // ==========================================
+        const cowGroup = new THREE.Group(); scene.add(cowGroup);
+
+        function createVoxelCow(level, px, pz, isRestoredFed = false, type = 'normal') {
+            const cow = new THREE.Group();
+            
+            cow.userData = { 
+                id: nextCowId++, level: level, type: type, isDragging: false, targetYRot: Math.random() * Math.PI * 2, velocity: 0, targetCow: null,
+                isHungry: isRestoredFed ? false : (Math.random() < 0.15), 
+                timeAlive: 0, eatTimeTarget: 30 + Math.random() * 15, isEating: false, eatTimer: 0, grassToEat: [], 
+                isFed: isRestoredFed, poopTimer: 30.0, stepTimer: 0.0, hasAura: false,
+                isUFOVictim: false
+            };
+            
+            if (!isRestoredFed && type === 'normal') totalSpawnedCows++;
+
+            let baseColor = COW_COLORS[Math.min(level - 1, COW_COLORS.length - 1)];
+            let matBody;
+            
+            if (type === 'alien') {
+                matBody = new THREE.MeshPhysicalMaterial({ color: 0x00ffff, transmission: 0.9, opacity: 1, transparent: true, roughness: 0.1, emissive: 0x0044ff, emissiveIntensity: 0.5 });
+            } else if (type === 'flood') {
+                matBody = new THREE.MeshStandardMaterial({ color: 0x0055ff, roughness: 0.2, flatShading: true });
             } else {
-                bgmAudio.pause(); btn.innerText = "Desativada"; btn.className = "btn-danger";
+                matBody = new THREE.MeshStandardMaterial({ color: baseColor, roughness: 0.8, flatShading: true });
             }
-        }
 
-        function toggleSFX() {
-            sfxEnabled = !sfxEnabled;
-            const btn = document.getElementById('btn-toggle-sfx');
-            btn.innerText = sfxEnabled ? "Ativados" : "Desativados";
-            btn.className = sfxEnabled ? "btn-success" : "btn-danger";
-        }
+            const matDark = new THREE.MeshStandardMaterial({ color: 0x333333, flatShading: true });
+            const matPink = new THREE.MeshStandardMaterial({ color: 0xffb6c1, flatShading: true });
+            const matBrown = new THREE.MeshStandardMaterial({ color: 0x8b4513, flatShading: true });
 
-        // ==========================================
-        // VARIÁVEIS CORE DO JOGO
-        // ==========================================
-        const PRECO_INICIAL = 50; const MULTIPLICADOR_CUSTO = 1.05; const SALDO_INICIAL = 200;
-        const INCOME_PER_LEVEL = [0, 2, 10, 30, 80, 200, 450, 1000, 2200, 4800, 10000, 22000, 48000, 100000, 210000, 450000, 950000, 2000000, 4200000, 9000000, 20000000, 45000000, 95000000, 200000000];
-        const COW_EMOJIS = ["🐮", "🐄", "🐃", "🐂", "🐗", "🐘", "🦕", "🐉", "🦄", "👽"];
+            const enableShadows = (mesh) => { mesh.castShadow = true; mesh.receiveShadow = true; };
 
-        let money = SALDO_INICIAL; let totalCompras = 0; let cows = []; let nextCowId = 1;
-        let draggedCow = null; let offsetX = 0; let offsetY = 0;
-        let autoFuseActive = false; let autoFuseInterval = null;
+            const animGroup = new THREE.Group(); animGroup.position.y = 2.5; cow.add(animGroup);
+            const body = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2.2, 4.4), matBody); enableShadows(body); animGroup.add(body);
 
-        const gameArea = document.getElementById('game-area');
-        const moneyDisplay = document.getElementById('money-display');
-        const priceDisplay = document.getElementById('price-display');
-        const incomeDisplay = document.getElementById('income-display');
-        const btnBuy = document.getElementById('btn-buy');
+            const headGroup = new THREE.Group(); headGroup.position.set(0, 0.5, 2.5); animGroup.add(headGroup);
+            const head = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 1.6), matBody); enableShadows(head); headGroup.add(head);
 
-        // ==========================================
-        // LÓGICA DE INTERFACE E MODAIS
-        // ==========================================
-        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
-        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+            const snout = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.8, 0.6), matPink); snout.position.set(0, -0.4, 1.1); enableShadows(snout); headGroup.add(snout);
+            const eyeGeo = new THREE.BoxGeometry(0.2, 0.4, 0.2);
+            const eyeL = new THREE.Mesh(eyeGeo, matDark); eyeL.position.set(0.6, 0.2, 0.85); headGroup.add(eyeL);
+            const eyeR = new THREE.Mesh(eyeGeo, matDark); eyeR.position.set(-0.6, 0.2, 0.85); headGroup.add(eyeR);
+            const hornGeo = new THREE.BoxGeometry(0.2, 0.6, 0.2);
+            const hornL = new THREE.Mesh(hornGeo, matDark); hornL.position.set(0.6, 1.1, 0); headGroup.add(hornL);
+            const hornR = new THREE.Mesh(hornGeo, matDark); hornR.position.set(-0.6, 1.1, 0); headGroup.add(hornR);
 
-        function openSubmitModal() {
-            document.getElementById('lbl-submit-money').innerText = abbreviate(money);
-            openModal('modal-submit');
-        }
+            const udder = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.4, 1.6), matPink); udder.position.set(0, -1.3, -0.5); enableShadows(udder); animGroup.add(udder);
 
-        async function getCountryFlag() {
-            try {
-                let res = await fetch('https://get.geojs.io/v1/ip/geo.json');
-                let data = await res.json();
-                let code = data.country || "BR";
-                return code.toUpperCase().replace(/./g, char => String.fromCodePoint(char.charCodeAt(0) + 127397));
-            } catch (e) { return "🏳️"; }
-        }
+            const legGeo = new THREE.BoxGeometry(0.6, 1.4, 0.6); const hoofGeo = new THREE.BoxGeometry(0.65, 0.4, 0.65);
+            const createLeg = (x, z) => {
+                const legGroup = new THREE.Group(); legGroup.position.set(x, 0.7, z);
+                const leg = new THREE.Mesh(legGeo, matBody); enableShadows(leg); legGroup.add(leg);
+                const hoof = new THREE.Mesh(hoofGeo, matDark); hoof.position.y = -0.5; enableShadows(hoof); legGroup.add(hoof);
+                cow.add(legGroup); return legGroup;
+            };
+            cow.userData.legs = [ createLeg(1, 1.5), createLeg(-1, 1.5), createLeg(1, -1.5), createLeg(-1, -1.5) ];
+            cow.userData.animGroup = animGroup; cow.userData.headGroup = headGroup;
 
-        async function processSubmitLeaderboard() {
-            let nameElem = document.getElementById('player-name');
-            let name = nameElem.value.trim().toUpperCase();
-            if (name.length < 3) { playErrorSound(); alert("Mínimo 3 letras."); return; }
+            const stepSound = new THREE.PositionalAudio(listener);
+            stepSound.setBuffer(grassStepBuffer); stepSound.setRefDistance(1.5); stepSound.setMaxDistance(10); stepSound.setVolume(0.3);
+            cow.add(stepSound); cow.userData.stepSound = stepSound;
 
-            let flag = await getCountryFlag();
+            cow.position.set(px, GROUND_LEVEL, pz); cow.rotation.y = cow.userData.targetYRot;
             
-            await BackendAPI.submitToGlobalLeaderboard({ name: name, flag: flag, money: money });
-            
-            hardResetPasto();
-            closeModal('modal-submit');
-            nameElem.value = "";
-            alert("Progresso enviado ao Leaderboard Global com sucesso! Pasto limpo.");
-        }
-
-        async function openLeaderboard() {
-            let lbData = await BackendAPI.fetchGlobalLeaderboard();
-            let html = "<table><tr><th>#</th><th>País</th><th>Nome</th><th>Dinheiro ($)</th></tr>";
-            if (lbData.length === 0) { html += "<tr><td colspan='4'>Nenhum jogador no placar ainda.</td></tr>"; } 
-            else {
-                lbData.forEach((p, index) => {
-                    html += `<tr><td>${index + 1}</td><td>${p.flag}</td><td>${p.name}</td><td>${abbreviate(p.money)}</td></tr>`;
-                });
+            if (isRestoredFed || type === 'alien' || type === 'flood') {
+                let col = type==='alien'?0xffff00:(type==='flood'?0x00ffff:0xffffaa);
+                addAura(cow, col);
+                cow.userData.isHungry = false; cow.userData.isFed = true;
             }
-            html += "</table>";
-            document.getElementById('lb-content').innerHTML = html;
-            openModal('modal-leaderboard');
+
+            cowGroup.add(cow); cows.push(cow);
+            unlockCowInCollection(type === 'normal' ? level : type);
+
+            return cow;
         }
 
         // ==========================================
-        // CORE: MECÂNICAS, SPAWN E ARRASTO
+        // UI & SISTEMA DE COMPRA & COLEÇÃO
         // ==========================================
-        function getCowPrice() { return Math.floor(PRECO_INICIAL * Math.pow(MULTIPLICADOR_CUSTO, totalCompras)); }
         function abbreviate(v) {
             if (v < 1000) return Math.floor(v).toString();
-            const u = ["", "K", "M", "B", "T", "Qa", "Qi"];
-            let idx = 0; while (v >= 1000 && idx < u.length - 1) { v /= 1000; idx++; }
+            const u = ["", "K", "M", "B", "T"]; let idx = 0; while (v >= 1000 && idx < u.length - 1) { v /= 1000; idx++; }
             return v.toFixed(1).replace(/\.0$/, '') + u[idx];
         }
 
-        function updateUI() {
-            moneyDisplay.innerText = abbreviate(money);
-            priceDisplay.innerText = abbreviate(getCowPrice());
-            let totalIncome = cows.reduce((sum, cow) => sum + (INCOME_PER_LEVEL[cow.level] || 0), 0);
-            incomeDisplay.innerText = abbreviate(totalIncome);
-            btnBuy.disabled = money < getCowPrice();
+        function getCowPrice() { return Math.floor(PRECO_INICIAL * Math.pow(MULTIPLICADOR_CUSTO, totalCompras)); }
+        function getCowIncome(cow) { 
+            if(cow.userData.type === 'alien') return 500000;
+            if(cow.userData.type === 'flood') return 100000;
+            return cow.userData.isFed ? (INCOME_PER_LEVEL[cow.userData.level]||0)*2 : (INCOME_PER_LEVEL[cow.userData.level]||0); 
         }
 
-        // Função buyCow modificada conforme solicitado: Spawn Aleatório com distância das bordas
-        function buyCow() {
+        function updateUI() {
+            document.getElementById('money-display').innerText = abbreviate(money);
+            document.getElementById('price-display').innerText = abbreviate(getCowPrice());
+            document.getElementById('cows-display').innerText = abbreviate(totalSpawnedCows);
+            let income = cows.reduce((sum, c) => sum + getCowIncome(c), 0);
+            document.getElementById('income-display').innerText = abbreviate(income);
+            document.getElementById('btn-buy').disabled = money < getCowPrice();
+            saveGame();
+        }
+
+        document.getElementById('btn-buy').addEventListener('click', () => {
             let price = getCowPrice();
             if (money >= price) {
-                money -= price;
-                totalCompras++;
+                money -= price; totalCompras++;
+                let x, z; do { x = (Math.random() - 0.5) * 40; z = (Math.random() - 0.5) * 40; } while(isColliding(x, z));
+                let cow = createVoxelCow(1, x, z); cow.position.y = 10; updateUI(); SFX.buy(); 
+            }
+        });
 
-                let targetX = 0, targetY = 0;
-                let padding = 80; // Distância segura das bordas do mapa
-                let areaW = gameArea.clientWidth; 
-                let areaH = gameArea.clientHeight;
+        const COLLECTION_DATA = [];
+        for(let i=1; i<=10; i++) COLLECTION_DATA.push({ id: i, name: 'Vaca Nv.'+i, color: COW_COLORS[i-1] || 0xffffff });
+        COLLECTION_DATA.push({ id: 'alien', name: 'Vaca Alien', color: 0x00ffff });
+        COLLECTION_DATA.push({ id: 'flood', name: 'Vaca Inundação', color: 0x0055ff });
 
-                // Tenta encontrar uma posição que não sobreponha outra vaca fortemente
-                let overlap = true; 
-                let attempts = 0;
-                while (overlap && attempts < 30) {
-                    targetX = padding + Math.random() * (areaW - padding * 2);
-                    targetY = padding + Math.random() * (areaH - padding * 2);
-                    // Checa colisão com outras vacas (distância menor que 60px)
-                    overlap = cows.some(c => Math.sqrt(Math.pow(c.x - targetX, 2) + Math.pow(c.y - targetY, 2)) < 60);
-                    attempts++;
-                }
+        function drawCowThumb(canvas, color, isAlien) {
+            const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,64,64);
+            ctx.fillStyle = '#' + color.toString(16).padStart(6, '0');
+            ctx.fillRect(16, 20, 32, 24); // body
+            ctx.fillRect(36, 12, 16, 16); // head
+            ctx.fillStyle = '#ffb6c1'; ctx.fillRect(44, 20, 10, 8); // snout
+            ctx.fillStyle = '#333'; ctx.fillRect(40, 16, 4, 4); // eye
+            ctx.fillRect(20, 44, 6, 12); ctx.fillRect(38, 44, 6, 12); // legs
+            if(isAlien) { ctx.strokeStyle = '#ff0'; ctx.lineWidth=2; ctx.strokeRect(14,18,36,28); }
+        }
 
-                playBuySound();
-                spawnCow(1, targetX, targetY);
-                updateUI(); 
-                saveGame();
-            } else { 
-                playErrorSound(); 
+        function unlockCowInCollection(id) {
+            if (!unlockedCows[id]) {
+                unlockedCows[id] = true; localStorage.setItem('MergeCow_Collection', JSON.stringify(unlockedCows));
+                renderCollection();
             }
         }
 
-        function spawnCow(level, x, y) {
-            let id = nextCowId++;
-            let cowElement = document.createElement('div');
-            cowElement.className = 'cow';
-            cowElement.style.left = x + 'px'; cowElement.style.top = y + 'px';
-            
-            let emojiIndex = Math.min(level - 1, COW_EMOJIS.length - 1);
-            cowElement.innerHTML = COW_EMOJIS[emojiIndex] + `<div class="cow-level">${level}</div>`;
-            
-            gameArea.appendChild(cowElement);
-            let cowData = { id: id, level: level, x: x, y: y, element: cowElement };
-            cows.push(cowData);
+        window.openCollection = () => {
+            document.getElementById('modal-collection').style.display = 'flex';
+            renderCollection();
+        };
 
-            cowElement.addEventListener('mousedown', (e) => startDrag(e, cowData));
-            cowElement.addEventListener('touchstart', (e) => startDrag(e.touches[0], cowData), {passive: false});
-
-            return cowData;
-        }
-
-        function startDrag(e, cowData) {
-            draggedCow = cowData;
-            let rect = cowData.element.getBoundingClientRect();
-            let areaRect = gameArea.getBoundingClientRect();
-            offsetX = e.clientX - (rect.left - areaRect.left);
-            offsetY = e.clientY - (rect.top - areaRect.top);
-            cowData.element.style.zIndex = 1000;
-        }
-
-        document.addEventListener('mousemove', (e) => drag(e));
-        document.addEventListener('touchmove', (e) => { if(draggedCow) { e.preventDefault(); drag(e.touches[0]); }}, {passive: false});
-
-        function drag(e) {
-            if (!draggedCow) return;
-            let areaRect = gameArea.getBoundingClientRect();
-            let newX = e.clientX - areaRect.left - offsetX;
-            let newY = e.clientY - areaRect.top - offsetY;
-
-            newX = Math.max(0, Math.min(newX, areaRect.width - 60));
-            newY = Math.max(0, Math.min(newY, areaRect.height - 60));
-
-            draggedCow.x = newX; draggedCow.y = newY;
-            draggedCow.element.style.left = newX + 'px';
-            draggedCow.element.style.top = newY + 'px';
-        }
-
-        document.addEventListener('mouseup', stopDrag);
-        document.addEventListener('touchend', stopDrag);
-
-        function stopDrag() {
-            if (!draggedCow) return;
-            draggedCow.element.style.zIndex = 1;
-            checkMerge(draggedCow);
-            draggedCow = null; saveGame();
-        }
-
-        function checkMerge(activeCow) {
-            for (let i = 0; i < cows.length; i++) {
-                let otherCow = cows[i];
-                if (otherCow.id === activeCow.id) continue;
-                if (activeCow.level === otherCow.level) {
-                    let distance = Math.sqrt(Math.pow(activeCow.x - otherCow.x, 2) + Math.pow(activeCow.y - otherCow.y, 2));
-                    if (distance < 50) { performMerge(activeCow, otherCow); break; }
-                }
-            }
-        }
-
-        function performMerge(cow1, cow2) {
-            let nextLevel = cow1.level + 1;
-            let mergeX = (cow1.x + cow2.x) / 2; let mergeY = (cow1.y + cow2.y) / 2;
-            cow1.element.remove(); cow2.element.remove();
-            cows = cows.filter(c => c.id !== cow1.id && c.id !== cow2.id);
-
-            playMergeSound(); createFloatingText("✨ MERGE!", mergeX, mergeY);
-            spawnCow(nextLevel, mergeX, mergeY); updateUI();
-        }
-
-        // ==========================================
-        // AUTO-FUSE LOGIC
-        // ==========================================
-        function toggleAutoFuse() {
-            autoFuseActive = !autoFuseActive;
-            const btn = document.getElementById('btn-auto-fuse');
-            if (autoFuseActive) {
-                btn.className = "btn-success";
-                btn.innerText = "🤖 Auto-Fuse: ON";
-                autoFuseInterval = setInterval(processAutoFuseMovement, 30);
-            } else {
-                btn.className = "";
-                btn.innerText = "🤖 Auto-Fuse: OFF";
-                clearInterval(autoFuseInterval);
-            }
-        }
-
-        function processAutoFuseMovement() {
-            let cowsByLevel = {};
-            cows.forEach(c => {
-                if (c === draggedCow) return; // Ignora vaca em foco humano
-                if (!cowsByLevel[c.level]) cowsByLevel[c.level] = [];
-                cowsByLevel[c.level].push(c);
+        function renderCollection() {
+            const grid = document.getElementById('collection-grid'); grid.innerHTML = '';
+            COLLECTION_DATA.forEach(c => {
+                let card = document.createElement('div');
+                let isUnlocked = unlockedCows[c.id];
+                card.className = 'cow-card ' + (isUnlocked ? '' : 'locked');
+                let canvas = document.createElement('canvas'); canvas.width=64; canvas.height=64;
+                drawCowThumb(canvas, c.color, c.id==='alien');
+                card.appendChild(canvas);
+                let title = document.createElement('p'); title.innerText = isUnlocked ? c.name : '???'; card.appendChild(title);
+                let lvl = document.createElement('span'); lvl.className = 'level'; lvl.innerText = typeof c.id === 'number' ? `Level ${c.id}` : 'Evento'; card.appendChild(lvl);
+                grid.appendChild(card);
             });
+        }
 
-            for (let level in cowsByLevel) {
-                let group = cowsByLevel[level];
-                if (group.length >= 2) {
-                    let c1 = group[0]; let c2 = group[1];
-                    let dx = c1.x - c2.x; let dy = c1.y - c2.y;
-                    let dist = Math.sqrt(dx*dx + dy*dy);
+        // LEADERBOARD
+        let userFlag = "un"; 
+        fetch('https://get.geojs.io/v1/ip/country.json').then(res => res.json()).then(data => { if(data.country) userFlag = data.country.toLowerCase(); }).catch(e => {});
+        let currentLBTab = 'money'; let lbData = JSON.parse(localStorage.getItem('MergeCow_LB')) || { money: [], cows: [] };
 
-                    if (dist < 40) {
-                        performMerge(c1, c2); return; // Fazer 1 merge por frame previne bugs de loop
-                    } else {
-                        let speed = 30;
-                        c2.x += (dx / dist) * speed; c2.y += (dy / dist) * speed;
-                        c2.element.style.left = c2.x + 'px'; c2.element.style.top = c2.y + 'px';
+        window.openLeaderboard = () => { document.getElementById('modal-leaderboard').style.display = 'flex'; renderLB(); };
+        window.switchLBTab = (tab) => {
+            currentLBTab = tab; document.getElementById('tab-money').className = tab === 'money' ? 'btn-primary btn-active' : 'btn-primary';
+            document.getElementById('tab-cows').className = tab === 'cows' ? 'btn-primary btn-active' : 'btn-primary';
+            document.getElementById('lb-score-header').innerText = tab === 'money' ? 'Fortuna ($)' : 'Vacas Totais'; renderLB();
+        };
+        function renderLB() {
+            const tbody = document.getElementById('lb-body'); tbody.innerHTML = '';
+            const list = lbData[currentLBTab];
+            if(list.length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; opacity:0.5;">Nenhum registro.</td></tr>'; return; }
+            list.forEach((entry, index) => {
+                let tr = document.createElement('tr');
+                tr.innerHTML = `<td>${index + 1}</td><td><img src="https://flagcdn.com/24x18/${entry.flag}.png" alt="${entry.flag}" style="vertical-align: middle; border-radius: 2px;"></td>
+                    <td>${entry.name}</td><td style="color:var(--accent); font-weight:bold;">${currentLBTab==='money' ? '$':''}${abbreviate(entry.score)}</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+        window.submitScore = () => {
+            let nick = document.getElementById('lb-nickname').value.toUpperCase().trim() || "ANON"; if (nick.length > 5) nick = nick.substring(0, 5);
+            if (currentLBTab === 'money') {
+                if (money <= 0) return;
+                let mIndex = lbData.money.findIndex(e => e.name === nick);
+                if(mIndex > -1) { lbData.money[mIndex].score = Math.max(lbData.money[mIndex].score, money); lbData.money[mIndex].flag = userFlag; } else { lbData.money.push({name: nick, flag: userFlag, score: money}); }
+                lbData.money.sort((a,b) => b.score - a.score); if(lbData.money.length > 10) lbData.money.length = 10;
+                money = 0;
+            } else if (currentLBTab === 'cows') {
+                if (totalSpawnedCows <= 0) return;
+                let cIndex = lbData.cows.findIndex(e => e.name === nick);
+                if(cIndex > -1) { lbData.cows[cIndex].score = Math.max(lbData.cows[cIndex].score, totalSpawnedCows); lbData.cows[cIndex].flag = userFlag; } else { lbData.cows.push({name: nick, flag: userFlag, score: totalSpawnedCows}); }
+                lbData.cows.sort((a,b) => b.score - a.score); if(lbData.cows.length > 10) lbData.cows.length = 10;
+                totalSpawnedCows = 0;
+            }
+            localStorage.setItem('MergeCow_LB', JSON.stringify(lbData)); updateUI(); renderLB();
+        };
+
+        // ==========================================
+        // RAYCASTER (CLIQUES E EVENTO METEORO)
+        // ==========================================
+        const raycaster = new THREE.Raycaster(); const mouse = new THREE.Vector2();
+        let draggedCow = null; let offset = new THREE.Vector3();
+        let raycastTargets = [];
+
+        function getCowFromIntersect(intersectedObject) {
+            let obj = intersectedObject; while(obj.parent && obj.parent !== cowGroup) { obj = obj.parent; }
+            return obj === cowGroup ? null : obj;
+        }
+
+        window.addEventListener('pointerdown', (event) => {
+            if(event.button !== 0 || event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT' || event.target.id === 'event-toggle') return;
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1; mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            
+            if (meteor.mesh && meteor.phase === 'landed') {
+                let intersectsMeteor = raycaster.intersectObject(meteor.mesh);
+                if (intersectsMeteor.length > 0) {
+                    meteor.clicks++; SFX.click();
+                    meteor.mesh.scale.setScalar(1 + Math.random()*0.2); setTimeout(()=> {if(meteor.mesh) meteor.mesh.scale.setScalar(1);}, 50);
+                    createFloatingText("BAM!", meteor.mesh.position.x, meteor.mesh.position.z);
+                    if(meteor.clicks >= 100) meteor.phase = 'sinking';
+                    return;
+                }
+            }
+
+            let intersectsPoop = raycaster.intersectObjects(poopGroup.children, true);
+            if (intersectsPoop.length > 0) {
+                let p = intersectsPoop[0].object; money += p.userData.value; updateUI();
+                createFloatingText("+$" + abbreviate(p.userData.value), p.position.x, p.position.z);
+                poopGroup.remove(p); SFX.poopCollect(); return;
+            }
+
+            let intersects = raycaster.intersectObjects(cowGroup.children, true);
+            if (intersects.length > 0) {
+                let cow = getCowFromIntersect(intersects[0].object);
+                if(cow && !cow.userData.isUFOVictim) {
+                    controls.enabled = false; draggedCow = cow; draggedCow.userData.isDragging = true; draggedCow.position.y = Math.max(GROUND_LEVEL+3, water.level+3);
+                    if(raycaster.ray.intersectPlane(intersectionPlane, offset)) { offset.sub(draggedCow.position); }
+                }
+            }
+        });
+
+        window.addEventListener('pointermove', (event) => {
+            if (!draggedCow) return;
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1; mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera); let intersectPoint = new THREE.Vector3();
+            if(raycaster.ray.intersectPlane(intersectionPlane, intersectPoint)) {
+                let nX = intersectPoint.x - offset.x; let nZ = intersectPoint.z - offset.z;
+                if (!isColliding(nX, draggedCow.position.z)) draggedCow.position.x = nX;
+                if (!isColliding(draggedCow.position.x, nZ)) draggedCow.position.z = nZ;
+            }
+        });
+
+        window.addEventListener('pointerup', () => {
+            if (!draggedCow) return;
+            draggedCow.position.y = Math.max(GROUND_LEVEL, water.level); draggedCow.userData.isDragging = false;
+            for (let i = 0; i < cows.length; i++) {
+                let otherCow = cows[i]; if (otherCow === draggedCow || draggedCow.userData.type !== 'normal' || otherCow.userData.type !== 'normal') continue;
+                if (draggedCow.userData.level === otherCow.userData.level && draggedCow.position.distanceTo(otherCow.position) < 5) {
+                    performMerge3D(draggedCow, otherCow); break;
+                }
+            }
+            draggedCow = null; controls.enabled = true;
+        });
+
+        function performMerge3D(c1, c2) {
+            let nextLevel = c1.userData.level + 1; let mx = (c1.position.x + c2.position.x) / 2; let mz = (c1.position.z + c2.position.z) / 2;
+            cowGroup.remove(c1); cowGroup.remove(c2); cows = cows.filter(c => c !== c1 && c !== c2);
+            let newCow = createVoxelCow(nextLevel, mx, mz); newCow.position.y = 5; 
+            createFloatingText("MERGE!", mx, mz); updateUI(); SFX.merge();
+        }
+
+        // ==========================================
+        // OBJETOS DOS EVENTOS E EVENT LISTENERS UI
+        // ==========================================
+        const meteor = { active: false, timer: 0, phase: 'none', clicks: 0, mesh: null, fireParts: [] };
+        const ufoEvent = { active: false, timer: 0, phase: 'none', ufoGroup: null, beam: null, targetCow: null };
+        const ufoMat = new THREE.MeshStandardMaterial({color: 0x888888, metalness: 0.8, roughness: 0.2});
+        const domeMat = new THREE.MeshPhysicalMaterial({color: 0x00ff00, transmission:0.8, opacity:1, transparent:true});
+        const flood = { active: false, timer: 0, phase: 'none', clouds: [], rainParts: null, cow: null, isProtecting: false };
+        const waterGeo = new THREE.PlaneGeometry(100, 100, 16, 16); waterGeo.rotateX(-Math.PI/2);
+        const waterMat = new THREE.MeshPhysicalMaterial({color: 0x0055ff, transmission: 0.9, opacity: 0.8, transparent: true, roughness: 0.1});
+        const waterMesh = new THREE.Mesh(waterGeo, waterMat); waterMesh.position.y = GROUND_LEVEL - 5; scene.add(waterMesh);
+        const water = { level: GROUND_LEVEL - 5, targetLevel: GROUND_LEVEL - 5 };
+        
+        // Logica de Disparo da UI do Painel
+        document.getElementById('event-toggle').addEventListener('click', function() {
+            const btns = document.getElementById('event-buttons');
+            if(btns.style.display === 'none') {
+                btns.style.display = 'flex';
+                this.innerText = '▲ Controle de Eventos ▲';
+            } else {
+                btns.style.display = 'none';
+                this.innerText = '▼ Controle de Eventos ▼';
+            }
+        });
+
+        function triggerManualEvent(startFunc) {
+            if (meteor.active || ufoEvent.active || flood.active) return; // 1 evento por vez
+            setTimeout(() => {
+                if (!meteor.active && !ufoEvent.active && !flood.active) startFunc();
+            }, 1000); // 1 segundo de delay
+        }
+
+        document.getElementById('btn-ev-meteor').addEventListener('click', () => triggerManualEvent(startMeteorEvent));
+        document.getElementById('btn-ev-ufo').addEventListener('click', () => triggerManualEvent(startUFOEvent));
+        document.getElementById('btn-ev-flood').addEventListener('click', () => triggerManualEvent(startFloodEvent));
+
+        // Timer Checkers Aleatorios (Background)
+        setInterval(() => { if(Math.random() < 0.005 && !meteor.active && !flood.active && !ufoEvent.active) startMeteorEvent(); }, 300000); // 5 min
+        setInterval(() => { if(Math.random() < 0.01 && !ufoEvent.active && cows.length > 0 && !meteor.active && !flood.active) startUFOEvent(); }, 1500000); // 25 min
+        setInterval(() => { if(Math.random() < 0.05 && cows.length > 0) { SFX.cough(); createFloatingText("*Cof*", cows[0].position.x, cows[0].position.z); } }, 60000); // 1 min
+        setInterval(() => { if(Math.random() < 0.03 && !flood.active && !meteor.active && !ufoEvent.active) startFloodEvent(); }, 900000); // 15 min
+
+        function startMeteorEvent() {
+            meteor.active = true; meteor.timer = 0; meteor.phase = 'pre1'; meteor.clicks = 0;
+            windMat.color.setHex(0x00ff00);
+        }
+
+        function startUFOEvent() {
+            let validCows = cows.filter(c => c.userData.type === 'normal'); if(validCows.length===0) return;
+            ufoEvent.active = true; ufoEvent.timer = 0; ufoEvent.phase = 'arrive';
+            ufoEvent.targetCow = validCows[Math.floor(Math.random()*validCows.length)];
+            ufoEvent.targetCow.userData.isUFOVictim = true;
+            
+            if(!ufoEvent.ufoGroup) {
+                ufoEvent.ufoGroup = new THREE.Group();
+                let saucer = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 1, 16), ufoMat); ufoEvent.ufoGroup.add(saucer);
+                let dome = new THREE.Mesh(new THREE.SphereGeometry(3, 16, 16, 0, Math.PI*2, 0, Math.PI/2), domeMat); dome.position.y = 0.5; ufoEvent.ufoGroup.add(dome);
+                ufoEvent.beam = new THREE.Mesh(new THREE.CylinderGeometry(2, 4, 30, 16), new THREE.MeshBasicMaterial({color: 0x00ffff, transparent: true, opacity: 0.3, side: THREE.DoubleSide}));
+                ufoEvent.beam.position.y = -15; ufoEvent.beam.visible = false; ufoEvent.ufoGroup.add(ufoEvent.beam);
+                scene.add(ufoEvent.ufoGroup);
+            }
+            ufoEvent.ufoGroup.position.set(0, 50, 0); ufoEvent.ufoGroup.scale.setScalar(1); ufoEvent.ufoGroup.visible = true;
+        }
+
+        function startFloodEvent() {
+            flood.active = true; flood.timer = 0;
+            
+            let existingFloodCow = cows.find(c => c.userData.type === 'flood');
+            if(existingFloodCow) {
+                flood.phase = 'protect'; flood.isProtecting = true; flood.cow = existingFloodCow;
+            } else {
+                flood.phase = 'clouds'; flood.isProtecting = false;
+            }
+
+            const cloudGeo = new THREE.SphereGeometry(6, 7, 7);
+            for(let i=0; i<5; i++) {
+                let cm = new THREE.Mesh(cloudGeo, new THREE.MeshStandardMaterial({color: 0xffffff, transparent: true, opacity: 0.9}));
+                cm.position.set((Math.random()-0.5)*40, 25 + Math.random()*5, (Math.random()-0.5)*40);
+                cm.scale.set(1, 0.5, 1); scene.add(cm); flood.clouds.push(cm);
+            }
+
+            if(!flood.rainParts) {
+                const rGeo = new THREE.BufferGeometry(); const rPos = new Float32Array(2000 * 3);
+                for(let i=0; i<2000; i++) { rPos[i*3]=(Math.random()-0.5)*80; rPos[i*3+1]=Math.random()*40; rPos[i*3+2]=(Math.random()-0.5)*80; }
+                rGeo.setAttribute('position', new THREE.BufferAttribute(rPos, 3));
+                flood.rainParts = new THREE.Points(rGeo, new THREE.PointsMaterial({color: 0xaaaaff, size: 0.2, transparent: true, opacity: 0.6}));
+                scene.add(flood.rainParts);
+            }
+            flood.rainParts.visible = false;
+        }
+
+        // ==========================================
+        // ANIMAÇÃO CORE & FÍSICA E EVENTOS
+        // ==========================================
+        window.toggleAutoFuse = () => {
+            autoFuseActive = !autoFuseActive;
+            const btn = document.getElementById('btn-auto-fuse'); btn.innerText = autoFuseActive ? "🤖 Auto-Fuse: ON" : "🤖 Auto-Fuse: OFF"; btn.className = autoFuseActive ? "btn-primary" : "";
+        };
+
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            let delta = Math.min(clock.getDelta(), 0.1); let time = clock.getElapsedTime();
+
+            controls.update(); cows.forEach(c => c.userData.targetCow = null);
+
+            // ====== LÓGICA DO EVENTO METEORO ======
+            if (meteor.active) {
+                meteor.timer += delta;
+                if (meteor.phase === 'pre1') {
+                    scene.background.lerpColors(originalFogColor, new THREE.Color(0xff00ff), meteor.timer / 4.0);
+                    scene.fog.color.copy(scene.background);
+                    if (meteor.timer > 7) meteor.phase = 'pre2';
+                } else if (meteor.phase === 'pre2') {
+                    cameraShake = (meteor.timer - 7) * 2;
+                    if (meteor.timer >= 10) {
+                        meteor.phase = 'landing';
+                        if(!meteor.mesh) {
+                            meteor.mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(4, 1), new THREE.MeshStandardMaterial({color: 0x222222, emissive: 0x00ff00, emissiveIntensity: 0.2}));
+                            scene.add(meteor.mesh);
+                        }
+                        meteor.mesh.position.set(100, 100, -100); meteor.mesh.visible = true;
+                        
+                        cows.forEach(c => cowGroup.remove(c)); cows = []; totalSpawnedCows = 0; updateUI();
+                        SFX.meteorHit();
+                    }
+                } else if (meteor.phase === 'landing') {
+                    cameraShake = 5;
+                    meteor.mesh.position.lerp(new THREE.Vector3(0, GROUND_LEVEL+2, 0), 0.1);
+                    if (meteor.mesh.position.y < GROUND_LEVEL + 3) {
+                        meteor.phase = 'landed'; 
+                        document.getElementById('screen-flash').style.opacity = '0.8';
+                        setTimeout(() => { document.getElementById('screen-flash').style.opacity = '0'; }, 300);
+                    }
+                } else if (meteor.phase === 'landed') {
+                    cameraShake *= 0.9;
+                    meteor.mesh.rotation.x += delta; meteor.mesh.rotation.y += delta;
+                } else if (meteor.phase === 'sinking') {
+                    meteor.mesh.position.y -= delta * 2;
+                    if(meteor.mesh.position.y < -5) {
+                        meteor.mesh.visible = false; meteor.phase = 'none'; meteor.active = false;
+                        scene.background.copy(originalFogColor); scene.fog.color.copy(originalFogColor); windMat.color.setHex(0xffffff);
+                        let alien = createVoxelCow(1, 0, 0, true, 'alien'); alien.position.y = 15;
+                        
+                        // Reseta a câmera para a posição inicial após o evento
+                        camera.position.set(0, 45, 60);
+                        controls.target.set(0, 0, 0);
+                        controls.update();
+                        baseCameraPos.copy(camera.position);
                     }
                 }
             }
+
+            // ====== LÓGICA DO EVENTO UFO ======
+            if (ufoEvent.active) {
+                ufoEvent.timer += delta;
+                if (ufoEvent.phase === 'arrive') {
+                    let orbitX = Math.cos(time) * 15; let orbitZ = Math.sin(time) * 25;
+                    ufoEvent.ufoGroup.position.lerp(new THREE.Vector3(orbitX, 20, orbitZ), 0.05);
+                    if(ufoEvent.timer > 5) ufoEvent.phase = 'beam';
+                } else if (ufoEvent.phase === 'beam') {
+                    ufoEvent.ufoGroup.position.lerp(new THREE.Vector3(ufoEvent.targetCow.position.x, 20, ufoEvent.targetCow.position.z), 0.05);
+                    if(ufoEvent.ufoGroup.position.distanceTo(new THREE.Vector3(ufoEvent.targetCow.position.x, 20, ufoEvent.targetCow.position.z)) < 2) {
+                        ufoEvent.beam.visible = true;
+                        ufoEvent.targetCow.position.y += delta * 5;
+                        ufoEvent.targetCow.rotation.y += delta * 10;
+                        ufoEvent.targetCow.userData.legs.forEach(l => l.rotation.x = Math.sin(time*30));
+                        if(ufoEvent.timer % 1 < 0.1) SFX.moo();
+                        if(ufoEvent.targetCow.position.y > 18) {
+                            cowGroup.remove(ufoEvent.targetCow); cows = cows.filter(c => c !== ufoEvent.targetCow);
+                            ufoEvent.beam.visible = false; ufoEvent.phase = 'leave'; ufoEvent.timer = 0; updateUI();
+                        }
+                    }
+                } else if (ufoEvent.phase === 'leave') {
+                    let orbitX = Math.cos(time*2) * 15; let orbitZ = Math.sin(time*2) * 25;
+                    ufoEvent.ufoGroup.position.lerp(new THREE.Vector3(orbitX, 25, orbitZ), 0.1);
+                    if(ufoEvent.timer > 3) { ufoEvent.phase = 'supersonic'; }
+                } else if (ufoEvent.phase === 'supersonic') {
+                    ufoEvent.ufoGroup.position.y += delta * 100; ufoEvent.ufoGroup.position.z -= delta * 100; ufoEvent.ufoGroup.scale.multiplyScalar(0.9);
+                    if(ufoEvent.ufoGroup.position.y > 200) ufoEvent.active = false;
+                }
+            }
+
+            // ====== LÓGICA DO EVENTO INUNDAÇÃO ======
+            if (flood.active) {
+                flood.timer += delta;
+                if (flood.phase === 'clouds') {
+                    if (flood.timer < 3) {
+                        flood.clouds.forEach(c => { c.material.color.lerp(new THREE.Color(0x555555), delta); c.material.opacity = 0.7; });
+                    } else {
+                        flood.phase = 'rain'; flood.rainParts.visible = true; rainSound.setVolume(0.5);
+                    }
+                } else if (flood.phase === 'rain') {
+                    if (flood.timer > 28) { flood.phase = 'flood'; water.targetLevel = 5; }
+                    if (Math.random() < 0.01 && flood.timer % 5 < 0.1) { SFX.thunder(); document.getElementById('screen-flash').style.opacity = '0.5'; setTimeout(()=>document.getElementById('screen-flash').style.opacity='0', 100); }
+                } else if (flood.phase === 'flood') {
+                    if (flood.timer > 50) {
+                        flood.phase = 'surf';
+                        flood.cow = createVoxelCow(1, 40, 0, true, 'flood');
+                        flood.cow.position.y = water.level;
+                    }
+                } else if (flood.phase === 'surf') {
+                    flood.cow.position.lerp(new THREE.Vector3(0, water.level, 0), 0.05);
+                    if(flood.timer > 55) { flood.phase = 'drain'; water.targetLevel = GROUND_LEVEL - 5; }
+                } else if (flood.phase === 'drain') {
+                    flood.cow.position.y = water.level;
+                    if(flood.timer > 60) {
+                        flood.active = false; flood.rainParts.visible = false; rainSound.setVolume(0);
+                        flood.clouds.forEach(c => scene.remove(c)); flood.clouds = [];
+                        flood.cow.position.y = GROUND_LEVEL;
+                    }
+                } else if (flood.phase === 'protect') {
+                    if(flood.timer < 3) { flood.clouds.forEach(c => { c.material.color.lerp(new THREE.Color(0x555555), delta); }); }
+                    else if (flood.timer < 60) {
+                        flood.rainParts.visible = true; rainSound.setVolume(0.3); water.targetLevel = GROUND_LEVEL + 1.5;
+                        flood.cow.rotation.z = Math.PI; 
+                        flood.cow.position.y = GROUND_LEVEL + 3;
+                    } else {
+                        flood.active = false; flood.rainParts.visible = false; rainSound.setVolume(0); water.targetLevel = GROUND_LEVEL - 5;
+                        flood.clouds.forEach(c => scene.remove(c)); flood.clouds = [];
+                        flood.cow.rotation.z = 0; flood.cow.position.y = GROUND_LEVEL;
+                    }
+                }
+
+                water.level += (water.targetLevel - water.level) * delta * 0.5;
+                waterMesh.position.y = water.level;
+                if(flood.rainParts && flood.rainParts.visible) {
+                    let rArr = flood.rainParts.geometry.attributes.position.array;
+                    for(let i=0; i<2000; i++) {
+                        rArr[i*3+1] -= delta * 30; if(rArr[i*3+1] < water.level) rArr[i*3+1] = 40;
+                    }
+                    flood.rainParts.geometry.attributes.position.needsUpdate = true;
+                }
+            }
+
+            if (cameraShake > 0) {
+                camera.position.x = baseCameraPos.x + (Math.random()-0.5)*cameraShake;
+                camera.position.y = baseCameraPos.y + (Math.random()-0.5)*cameraShake;
+                camera.position.z = baseCameraPos.z + (Math.random()-0.5)*cameraShake;
+            } else {
+                baseCameraPos.copy(camera.position);
+            }
+
+            if(autoFuseActive && !draggedCow) {
+                let mergedThisFrame = false;
+                for(let i=0; i<cows.length && !mergedThisFrame; i++) {
+                    for(let j=i+1; j<cows.length; j++) {
+                        let c1 = cows[i]; let c2 = cows[j];
+                        if(c1.userData.type==='normal' && c2.userData.type==='normal' && c1.userData.level === c2.userData.level && !c1.userData.isDragging && !c2.userData.isDragging && !c1.userData.targetCow && !c2.userData.targetCow && !c1.userData.isUFOVictim && !c2.userData.isUFOVictim) {
+                            c1.userData.targetCow = c2; c2.userData.targetCow = c1;
+                            if(c1.position.distanceTo(c2.position) < 5) { performMerge3D(c1, c2); mergedThisFrame = true; break; }
+                        }
+                    }
+                }
+            }
+
+            cows.forEach(cow => {
+                if(!cow.userData.isDragging && !cow.userData.isUFOVictim) {
+                    cow.userData.timeAlive += delta;
+                    let cowBaseY = Math.max(GROUND_LEVEL, water.level);
+                    if(cow.position.y > cowBaseY && cow.userData.type !== 'flood') cow.position.y = Math.max(cowBaseY, cow.position.y - delta * 20); 
+
+                    if(water.level > GROUND_LEVEL + 0.5 && cow.userData.type !== 'flood') {
+                        cow.position.y = water.level + Math.sin(time*2 + cow.userData.id)*0.5;
+                        cow.rotation.z = Math.sin(time*3 + cow.userData.id)*0.1;
+                    } else {
+                        if(cow.userData.type !== 'flood' || flood.phase !== 'protect') cow.rotation.z = 0;
+                    }
+
+                    if (cow.userData.isHungry && !cow.userData.isEating && !cow.userData.isFed && cow.userData.timeAlive >= cow.userData.eatTimeTarget) {
+                        if (!autoFuseActive || !cow.userData.targetCow) {
+                            cow.userData.isEating = true; cow.userData.eatTimer = 5.0; cow.userData.velocity = 0;
+                            let eatCount = 10 + Math.floor(Math.random() * 6); cow.userData.grassToEat = [];
+                            let fwdX = Math.sin(cow.rotation.y); let fwdZ = Math.cos(cow.rotation.y);
+                            for (let i=0; i<GRASS_COUNT; i++) {
+                                let gd = grassData[i];
+                                if (!gd.eaten) {
+                                    let dx = gd.x - cow.position.x; let dz = gd.z - cow.position.z; let dist = Math.sqrt(dx*dx + dz*dz);
+                                    if (dist < 4.0 && dist > 0.5 && ((dx/dist)*fwdX + (dz/dist)*fwdZ) > 0.6) { cow.userData.grassToEat.push(i); if (cow.userData.grassToEat.length >= eatCount) break; }
+                                }
+                            }
+                        }
+                    }
+
+                    let isFusing = (autoFuseActive && cow.userData.targetCow);
+
+                    if (cow.userData.isEating) {
+                        cow.userData.eatTimer -= delta; cow.userData.headGroup.rotation.x = Math.PI / 2.5 + Math.sin(time * 15) * 0.1;
+                        let totalGrass = cow.userData.grassToEat.length;
+                        if (totalGrass > 0) {
+                            let percentDone = 1.0 - (cow.userData.eatTimer / 5.0); let grassEatenCount = Math.floor(percentDone * totalGrass);
+                            for (let i = 0; i < grassEatenCount; i++) { grassData[cow.userData.grassToEat[i]].eaten = true; }
+                        }
+                        if (cow.userData.eatTimer <= 0) { cow.userData.isEating = false; cow.userData.isHungry = false; cow.userData.isFed = true; cow.userData.poopTimer = 30.0; cow.userData.headGroup.rotation.x = 0; addAura(cow); }
+                    } else if (isFusing) {
+                        let target = cow.userData.targetCow; let dir = new THREE.Vector3().subVectors(target.position, cow.position).normalize(); let speed = 10;
+                        let nX = cow.position.x + dir.x * delta * speed; let nZ = cow.position.z + dir.z * delta * speed;
+                        if (isColliding(nX, nZ)) {
+                            let dirRight = new THREE.Vector3(dir.z, 0, -dir.x); let rX = cow.position.x + dirRight.x * delta * speed; let rZ = cow.position.z + dirRight.z * delta * speed;
+                            let dirLeft = new THREE.Vector3(-dir.z, 0, dir.x); let lX = cow.position.x + dirLeft.x * delta * speed; let lZ = cow.position.z + dirLeft.z * delta * speed;
+                            if (!isColliding(rX, rZ)) { nX = rX; nZ = rZ; } else if (!isColliding(lX, lZ)) { nX = lX; nZ = lZ; } else { nX = cow.position.x; nZ = cow.position.z; }
+                        }
+                        if(!isColliding(nX, cow.position.z)) cow.position.x = nX; if(!isColliding(cow.position.x, nZ)) cow.position.z = nZ;
+                        if (nX !== cow.position.x || nZ !== cow.position.z) cow.lookAt(nX, cow.position.y, nZ); else cow.lookAt(target.position.x, cow.position.y, target.position.z);
+                        cow.userData.velocity = speed;
+                    } else {
+                        let diff = cow.userData.targetYRot - cow.rotation.y; cow.rotation.y += diff * delta * 2;
+                        if(Math.random() < 0.01) cow.userData.velocity = (Math.random() > 0.5) ? 3 : 0; 
+                        if(Math.random() < 0.005) cow.userData.targetYRot += (Math.random() - 0.5) * Math.PI; 
+                        let dirX = Math.sin(cow.rotation.y) * cow.userData.velocity * delta; let dirZ = Math.cos(cow.rotation.y) * cow.userData.velocity * delta;
+                        let nX = cow.position.x + dirX; let nZ = cow.position.z + dirZ;
+                        if (isColliding(nX, nZ)) { cow.userData.targetYRot += Math.PI; cow.userData.velocity = 0; } else { cow.position.x = nX; cow.position.z = nZ; }
+                    }
+
+                    if (cow.userData.isFed) {
+                        cow.userData.poopTimer -= delta;
+                        let pTimeTarget = 30.0; // Agora todas as vacas (inclusive eventos) soltarão dejetos a cada 30 segundos
+                        if (cow.userData.poopTimer <= 0) { cow.userData.poopTimer = pTimeTarget; spawnPoop(cow); }
+                        if(cow.userData.sparkles) {
+                            let pArray = cow.userData.sparkles.geometry.attributes.position.array;
+                            for(let i=0; i<20; i++) { pArray[i*3+1] += delta * 1.5; if(pArray[i*3+1] > 3.5) pArray[i*3+1] = 0; }
+                            cow.userData.sparkles.geometry.attributes.position.needsUpdate = true;
+                        }
+                    }
+
+                    if(cow.userData.velocity > 0 && cow.position.y <= cowBaseY + 0.1 && !cow.userData.isEating) {
+                        let legSwing = Math.sin(time * 15 + cow.userData.id) * 0.4;
+                        cow.userData.legs.forEach((l, i) => l.rotation.x = (i%2===0)?legSwing:-legSwing); 
+                        cow.userData.animGroup.position.y = 2.5 + Math.abs(Math.sin(time * 15)) * 0.2; 
+                        cow.userData.stepTimer -= delta;
+                        if (cow.userData.stepTimer <= 0) { if (window.sfxEnabled && cow.userData.stepSound && !cow.userData.stepSound.isPlaying) cow.userData.stepSound.play(); cow.userData.stepTimer = 0.25; }
+                    } else if (!cow.userData.isEating) {
+                        cow.userData.legs.forEach(l => l.rotation.x = 0); cow.userData.animGroup.position.y = 2.5 + Math.sin(time * 2 + cow.userData.id) * 0.05; 
+                    }
+                    if (!cow.userData.isEating) cow.userData.headGroup.rotation.x = Math.sin(time * 1.5 + cow.userData.id) * 0.1;
+                }
+            });
+
+            let activeCows = cows.filter(c => c.userData.velocity > 0 || c.userData.isDragging);
+            for(let i = 0; i < GRASS_COUNT; i++) {
+                let gd = grassData[i];
+                if (gd.eaten) { _scale.set(0, 0, 0); } else {
+                    if (activeCows.length > 0 && gd.squashTimer <= 0 && !gd.popping) {
+                        for(let cow of activeCows) { if ((gd.x - cow.position.x)**2 + (gd.z - cow.position.z)**2 < 4.0) { gd.squashTimer = 5.0; gd.popping = false; break; } }
+                    }
+                    let scaleY = gd.baseScale; let scaleX = gd.baseScale; let scaleZ = gd.baseScale;
+                    let rotX = Math.sin(time * 2 + gd.x) * 0.15; let rotZ = Math.cos(time * 2 + gd.z) * 0.15; let rotY = gd.x;
+                    if (gd.squashTimer > 0) { gd.squashTimer -= delta; scaleY = gd.baseScale * 0.15; rotX += Math.PI / 2.2; if (gd.squashTimer <= 0) { gd.squashTimer = 0; gd.popping = true; gd.popTimer = 0.5; } }
+                    else if (gd.popping) {
+                        gd.popTimer -= delta;
+                        if (gd.popTimer <= 0) { gd.popping = false; } else {
+                            let t = 1.0 - (gd.popTimer / 0.5); 
+                            if (t < 0.5) { let p = t / 0.5; scaleY = (0.15 + p * 1.35) * gd.baseScale; scaleX = (1.0 - p * 0.2) * gd.baseScale; scaleZ = scaleX; } 
+                            else { let p = (t - 0.5) / 0.5; scaleY = (1.5 - p * 0.5) * gd.baseScale; scaleX = (0.8 + p * 0.2) * gd.baseScale; scaleZ = scaleX; }
+                        }
+                    }
+                    _scale.set(scaleX, scaleY, scaleZ); _euler.set(rotX, rotY, rotZ);
+                }
+                _position.set(gd.x, GROUND_LEVEL, gd.z); _quaternion.setFromEuler(_euler);
+                _dummy.matrix.compose(_position, _quaternion, _scale); grassInstanced.setMatrixAt(i, _dummy.matrix);
+            }
+            grassInstanced.instanceMatrix.needsUpdate = true;
+
+            windLines.forEach(line => {
+                line.position.x += line.userData.speed * delta; line.position.y += Math.sin(time * 4 + line.userData.offset) * 0.02; line.position.z += Math.cos(time * 3 + line.userData.offset) * 0.02;
+                if (line.position.x > 40) { line.position.x = -40; line.position.z = (Math.random() - 0.5) * 80; line.position.y = 1.5 + Math.random() * 10; }
+            });
+
+            renderer.render(scene, camera);
         }
 
         // ==========================================
-        // SAVING, LOADING & RESETING
+        // INFRAESTRUTURA & OPÇÕES
         // ==========================================
+        function createFloatingText(text, x, z) {
+            let elem = document.createElement('div'); elem.className = 'floating-text'; elem.innerText = text;
+            let pos = new THREE.Vector3(x, 5, z).project(camera);
+            let screenX = (pos.x * .5 + .5) * window.innerWidth; let screenY = (pos.y * -.5 + .5) * window.innerHeight;
+            elem.style.left = screenX + 'px'; elem.style.top = screenY + 'px';
+            document.body.appendChild(elem); setTimeout(() => elem.remove(), 1000);
+        }
+
+        setInterval(() => {
+            let income = cows.reduce((sum, c) => sum + getCowIncome(c), 0);
+            if (income > 0) { 
+                money += income; updateUI(); 
+                if(cows.length > 0) { let rc = cows[Math.floor(Math.random() * cows.length)]; createFloatingText("+$" + abbreviate(income), rc.position.x, rc.position.z); }
+            }
+        }, 3000);
+
         function saveGame() {
-            let cowSaveData = cows.map(c => `${c.level}|${Math.floor(c.x)}|${Math.floor(c.y)}`).join(";");
-            BackendAPI.saveGameData({ money, totalCompras, cows: cowSaveData });
+            let data = cows.map(c => `${c.userData.level}|${c.position.x.toFixed(1)}|${c.position.z.toFixed(1)}|${c.userData.isFed ? 1 : 0}|${c.userData.type}`).join(";");
+            localStorage.setItem("MergeCow3D_Save", JSON.stringify({ money, totalCompras, totalSpawnedCows, cows: data }));
         }
 
-        async function loadGame() {
-            let data = await BackendAPI.loadGameData();
-            if (data) {
-                money = data.money || SALDO_INICIAL;
-                totalCompras = data.totalCompras || 0;
-                if (data.cows) {
-                    data.cows.split(";").forEach(cowStr => {
-                        let info = cowStr.split("|");
-                        if (info.length >= 3) spawnCow(parseInt(info[0]), parseFloat(info[1]), parseFloat(info[2]));
+        function loadGame() {
+            let saved = JSON.parse(localStorage.getItem("MergeCow3D_Save"));
+            if (saved) {
+                money = saved.money || SALDO_INICIAL; totalCompras = saved.totalCompras || 0; totalSpawnedCows = saved.totalSpawnedCows || 0;
+                if (saved.cows) {
+                    saved.cows.split(";").forEach(c => {
+                        let [l, x, z, isFedStatus, t] = c.split("|");
+                        if(l) {
+                            let px = parseFloat(x); let pz = parseFloat(z); let restoredFed = (parseInt(isFedStatus) === 1); let type = t || 'normal';
+                            if (isColliding(px, pz)) { px = 0; pz = 0; } 
+                            createVoxelCow(parseInt(l), px, pz, restoredFed, type);
+                        }
                     });
-                }   
+                }
             }
             updateUI();
         }
 
-        function confirmResetGame() {
-            if(confirm("Deseja apagar TODO o seu progresso no pasto? Isso venderá todas as vacas e zerará seu saldo (Não afeta o Leaderboard).")) {
-                hardResetPasto();
-            }
-        }
+        window.toggleShadows = () => { shadowsEnabled = !shadowsEnabled; renderer.shadowMap.enabled = shadowsEnabled; scene.traverse(child => { if(child.material) child.needsUpdate = true; }); document.getElementById('btn-shadows').innerText = shadowsEnabled ? "LIGADO" : "DESLIGADO"; document.getElementById('btn-shadows').style.color = shadowsEnabled ? "var(--accent)" : "#ff3333"; };
+        window.toggleSFX = () => { window.sfxEnabled = !window.sfxEnabled; if(!window.sfxEnabled) { continuousSounds.forEach(s => s.pause()); } else if (audioContextStarted) { continuousSounds.forEach(s => s.play()); } let btn = document.getElementById('btn-sfx'); btn.innerText = window.sfxEnabled ? "LIGADO" : "DESLIGADO"; btn.style.color = window.sfxEnabled ? "var(--accent)" : "#ff3333"; };
+        window.hardResetGame = () => { if(confirm("ATENÇÃO: Isso deletará todas as vacas e o dinheiro permanentemente.")) { cows.forEach(c => cowGroup.remove(c)); cows = []; poopGroup.clear(); money = SALDO_INICIAL; totalCompras = 0; totalSpawnedCows = 0; unlockedCows = {1:true}; localStorage.removeItem('MergeCow_Collection'); updateUI(); document.getElementById('modal-settings').style.display='none'; } };
+        window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
 
-        function hardResetPasto() {
-            cows.forEach(c => c.element.remove());
-            cows = []; money = SALDO_INICIAL; totalCompras = 0; nextCowId = 1;
-            updateUI(); saveGame();
-        }
-
-        // ==========================================
-        // UTILITÁRIOS & LOOPS
-        // ==========================================
-        function createFloatingText(text, x, y) {
-            let textElem = document.createElement('div');
-            textElem.className = 'floating-text'; textElem.innerText = text;
-            textElem.style.left = (x + 10) + 'px'; textElem.style.top = y + 'px';
-            gameArea.appendChild(textElem); setTimeout(() => textElem.remove(), 1000);
-        }
-
-        setInterval(() => {
-            let income = cows.reduce((sum, cow) => sum + (INCOME_PER_LEVEL[cow.level] || 0), 0);
-            if (income > 0) {
-                money += income; updateUI(); saveGame();
-                if (cows.length > 0) {
-                    let rCow = cows[Math.floor(Math.random() * cows.length)];
-                    createFloatingText("+$" + abbreviate(income), rCow.x, rCow.y - 20);
-                }
-            }
-        }, 3000);
-
-        setInterval(() => { BackendAPI.resetLeaderboardCronCheck(); }, 1000); 
-
-        setInterval(() => {
-            const now = new Date();
-            const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-            const brTime = new Date(utc + (3600000 * -3)); 
-            const nextMidnight = new Date(brTime); nextMidnight.setHours(24, 0, 0, 0);
-            const diff = nextMidnight - brTime;
-            const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-            const s = Math.floor((diff % (1000 * 60)) / 1000);
-            document.getElementById('lb-timer').innerText = 
-                `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-        }, 1000);
-
-        document.body.addEventListener('click', () => { if (audioCtx.state === 'suspended') audioCtx.resume(); }, { once: true });
-        window.onload = loadGame;
+        loadGame(); animate();
     </script>
 </body>
 </html>
