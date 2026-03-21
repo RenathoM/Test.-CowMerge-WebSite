@@ -5,7 +5,7 @@ Um jogo web incremental (Idle/Merge) em 3D renderizado diretamente no navegador.
 ## 🌟 Funcionalidades Principais
 
 * **Gráficos 3D no Browser:** Desenvolvido com **Three.js**, apresentando iluminação dinâmica, sombras suaves e um estilo visual "Voxel" apelativo.
-* **Mecânica de Merge Física:** Arraste e solte vacas do mesmo nível com o oouse para fundi-las numa espécie superior.
+* **Mecânica de Merge Física:** Arraste e solte vacas do mesmo nível com o mouse para fundi-las numa espécie superior.
 * **Inteligência Artificial (Pathfinding):** As vacas movimentam-se livremente pelo pasto, desviam-se de obstáculos (celeiro, árvores, cercas) e procuram erva para comer quando estão com fome.
 * **Economia Idle:** As vacas bem alimentadas produzem dejetos que geram dinheiro ao serem recolhidos.
 * **Leaderboard Global:** Placar mundial em tempo real (separado por Fortuna e Vacas Spawnadas) integrado com **Supabase** e identificação de país por bandeiras (API GeoJS).
