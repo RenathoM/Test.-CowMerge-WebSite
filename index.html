@@ -151,9 +151,9 @@
 
     <div id="screen-flash"></div>
 
-    <div id="start-screen">
+    <div id="start-screen" style="pointer-events: none;">
         <h1>MERGE COW 3D</h1>
-        <p>CLIQUE NA TELA PARA INICIAR</p>
+        <p id="start-text">CONECTANDO AO SERVIDOR GLOBAL...</p>
     </div>
 
     <div id="ui-layer">
@@ -413,16 +413,107 @@
             }
         };
 
-        document.getElementById('start-screen').addEventListener('click', function() {
-            this.style.opacity = '0'; setTimeout(() => this.style.display = 'none', 500);
-            if (!audioContextStarted) {
-                audioContextStarted = true; if(audioCtx.state === 'suspended') audioCtx.resume();
-                if(window.sfxEnabled) {
-                    windSound.play(); rainSound.play();
-                    continuousSounds.forEach(s => { if(!s.isPlaying && s !== windSound && s !== rainSound) s.play(); });
+        // ==========================================
+        // SISTEMA DE NUVEM (SUPABASE) - LEADERBOARD E CARREGAMENTO
+        // ==========================================
+        const SUPABASE_URL = "https://xjgdtwevqrrnorgzelrz.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhqZ2R0d2V2cXJybm9yZ3plbHJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMzk3ODAsImV4cCI6MjA4OTYxNTc4MH0.XGmwAxTNWghMRzTDMZvu5IXHmHy_7Xw54RjdPzqa-Dw"; // IMPORTANTE: Substitua pela sua chave Anon Public do Supabase!
+
+        let currentLBTab = 'money'; 
+        let lbData = { money: [], cows: [] };
+        let userFlag = "un"; 
+        
+        fetch('https://get.geojs.io/v1/ip/country.json').then(res => res.json()).then(data => { if(data.country) userFlag = data.country.toLowerCase(); }).catch(e => {});
+
+        async function loadGlobalLeaderboard() {
+            try {
+                // Tabela Supabase: "leaderboard" com colunas (id, name, flag, score, type)
+                let res = await fetch(`${SUPABASE_URL}/rest/v1/leaderboard?select=*`, {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                });
+                if(res.ok) {
+                    let data = await res.json();
+                    lbData.money = data.filter(d => d.type === 'money').sort((a,b) => b.score - a.score).slice(0, 10);
+                    lbData.cows = data.filter(d => d.type === 'cows').sort((a,b) => b.score - a.score).slice(0, 10);
+                } else {
+                    throw new Error("Supabase bloqueado ou chave inválida. Fallback ativado.");
                 }
+            } catch(e) {
+                console.error("Aviso Supabase: ", e.message);
+                lbData = JSON.parse(localStorage.getItem('MergeCow_LB')) || { money: [], cows: [] };
+            }
+            if(document.getElementById('modal-leaderboard').style.display === 'flex') renderLB();
+        }
+
+        async function saveGlobalScore(name, flag, score, type) {
+            try {
+                let existingRes = await fetch(`${SUPABASE_URL}/rest/v1/leaderboard?name=eq.${name}&type=eq.${type}&select=id,score`, {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                });
+                let existing = await existingRes.json();
+
+                if (existing && existing.length > 0) {
+                    let record = existing[0];
+                    if (score > record.score) {
+                        await fetch(`${SUPABASE_URL}/rest/v1/leaderboard?id=eq.${record.id}`, {
+                            method: 'PATCH',
+                            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ score: score, flag: flag })
+                        });
+                    }
+                } else {
+                    await fetch(`${SUPABASE_URL}/rest/v1/leaderboard`, {
+                        method: 'POST',
+                        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, flag, score, type })
+                    });
+                }
+            } catch(e) { console.error("Erro ao salvar no Supabase:", e); }
+        }
+
+        async function deleteGlobalScore(id) {
+            try {
+                await fetch(`${SUPABASE_URL}/rest/v1/leaderboard?id=eq.${id}`, {
+                    method: 'DELETE',
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                });
+            } catch(e) { console.error(e); }
+        }
+
+        async function updateGlobalScoreAdmin(id, newScore) {
+            try {
+                await fetch(`${SUPABASE_URL}/rest/v1/leaderboard?id=eq.${id}`, {
+                    method: 'PATCH',
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ score: newScore })
+                });
+            } catch(e) { console.error(e); }
+        }
+
+        // CARREGAMENTO INICIAL: Aguarda nuvem antes de liberar o jogo
+        window.addEventListener('load', async () => {
+            const startText = document.getElementById('start-text');
+            
+            await loadGlobalLeaderboard();
+            
+            if (startText) startText.innerText = "CLIQUE NA TELA PARA INICIAR";
+            let ss = document.getElementById('start-screen');
+            if (ss) {
+                ss.style.pointerEvents = 'auto'; // Libera clique pós carregamento global
+                ss.addEventListener('click', function() {
+                    if(this.innerText.includes("CONECTANDO")) return;
+                    this.style.opacity = '0'; setTimeout(() => this.style.display = 'none', 500);
+                    if (!audioContextStarted) {
+                        audioContextStarted = true; if(audioCtx.state === 'suspended') audioCtx.resume();
+                        if(window.sfxEnabled) {
+                            windSound.play(); rainSound.play();
+                            continuousSounds.forEach(s => { if(!s.isPlaying && s !== windSound && s !== rainSound) s.play(); });
+                        }
+                    }
+                });
             }
         });
+
 
         // ==========================================
         // CONSTRUÇÃO PROCEDURAL
@@ -512,72 +603,29 @@
         // ==========================================
         function buildBarn() {
             const barn = new THREE.Group();
-            
-            // Body principal
-            const body = new THREE.Mesh(new THREE.BoxGeometry(14, 12, 16), matBarnRed); 
-            body.position.y = 6; body.castShadow = true; body.receiveShadow = true; barn.add(body);
-            
-            // Teto
-            const roof = new THREE.Mesh(new THREE.CylinderGeometry(9.5, 9.5, 17, 3), matRoof); 
-            roof.rotation.z = Math.PI / 2; roof.rotation.x = Math.PI / 2; 
-            roof.position.set(0, 14, 0); roof.castShadow = true; barn.add(roof);
-
-            // Porta do celeiro
+            const body = new THREE.Mesh(new THREE.BoxGeometry(14, 12, 16), matBarnRed); body.position.y = 6; body.castShadow = true; body.receiveShadow = true; barn.add(body);
+            const roof = new THREE.Mesh(new THREE.CylinderGeometry(9.5, 9.5, 17, 3), matRoof); roof.rotation.z = Math.PI / 2; roof.rotation.x = Math.PI / 2; roof.position.set(0, 14, 0); roof.castShadow = true; barn.add(roof);
             const matWhite = new THREE.MeshStandardMaterial({color: 0xffffff, flatShading: true});
-            const doorFrame = new THREE.Mesh(new THREE.BoxGeometry(6, 8, 0.5), matWhite);
-            doorFrame.position.set(0, 4, 8); barn.add(doorFrame);
-            const doorDark = new THREE.Mesh(new THREE.BoxGeometry(5, 7.5, 0.6), matWood);
-            doorDark.position.set(0, 3.75, 8); barn.add(doorDark);
-
-            // Janela do Sótão
-            const loftFrame = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 0.5), matWhite);
-            loftFrame.position.set(0, 10, 8.1); barn.add(loftFrame);
-            const loftDark = new THREE.Mesh(new THREE.BoxGeometry(3, 2, 0.6), new THREE.MeshStandardMaterial({color: 0x111111}));
-            loftDark.position.set(0, 10, 8.1); barn.add(loftDark);
-
-            // Silo lateral metálico
+            const doorFrame = new THREE.Mesh(new THREE.BoxGeometry(6, 8, 0.5), matWhite); doorFrame.position.set(0, 4, 8); barn.add(doorFrame);
+            const doorDark = new THREE.Mesh(new THREE.BoxGeometry(5, 7.5, 0.6), matWood); doorDark.position.set(0, 3.75, 8); barn.add(doorDark);
+            const loftFrame = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 0.5), matWhite); loftFrame.position.set(0, 10, 8.1); barn.add(loftFrame);
+            const loftDark = new THREE.Mesh(new THREE.BoxGeometry(3, 2, 0.6), new THREE.MeshStandardMaterial({color: 0x111111})); loftDark.position.set(0, 10, 8.1); barn.add(loftDark);
             const matSilo = new THREE.MeshStandardMaterial({color: 0xcccccc, metalness: 0.5, roughness: 0.5, flatShading: true});
-            const silo = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 18, 12), matSilo);
-            silo.position.set(10, 9, 0); silo.castShadow = true; barn.add(silo);
-            const siloRoof = new THREE.Mesh(new THREE.SphereGeometry(4, 12, 12, 0, Math.PI*2, 0, Math.PI/2), matRoof);
-            siloRoof.position.set(10, 18, 0); barn.add(siloRoof);
-
+            const silo = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 18, 12), matSilo); silo.position.set(10, 9, 0); silo.castShadow = true; barn.add(silo);
+            const siloRoof = new THREE.Mesh(new THREE.SphereGeometry(4, 12, 12, 0, Math.PI*2, 0, Math.PI/2), matRoof); siloRoof.position.set(10, 18, 0); barn.add(siloRoof);
             barn.position.set(0, 1, -20); mapGroup.add(barn);
         } buildBarn();
 
         function buildFence() {
             const fenceGroup = new THREE.Group();
-            const radius = 30; 
-            const segments = 36;
-            const angleStep = (Math.PI * 2) / segments;
-            
+            const radius = 30; const segments = 36; const angleStep = (Math.PI * 2) / segments;
             for(let i = 0; i < segments; i++) {
-                let angle = i * angleStep;
-                let x = Math.cos(angle) * radius;
-                let z = Math.sin(angle) * radius;
-                
-                let post = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3, 0.5), matWood);
-                post.position.set(x, 2.5, z);
-                post.castShadow = true; post.receiveShadow = true;
-                post.lookAt(0, 2.5, 0);
-                fenceGroup.add(post);
-
-                let nextAngle = (i + 1) * angleStep;
-                let nx = Math.cos(nextAngle) * radius;
-                let nz = Math.sin(nextAngle) * radius;
-                
+                let angle = i * angleStep; let x = Math.cos(angle) * radius; let z = Math.sin(angle) * radius;
+                let post = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3, 0.5), matWood); post.position.set(x, 2.5, z); post.castShadow = true; post.receiveShadow = true; post.lookAt(0, 2.5, 0); fenceGroup.add(post);
+                let nextAngle = (i + 1) * angleStep; let nx = Math.cos(nextAngle) * radius; let nz = Math.sin(nextAngle) * radius;
                 let dist = Math.sqrt((nx-x)**2 + (nz-z)**2);
-                let plank1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, dist + 0.2), matWood);
-                plank1.position.set((x+nx)/2, 3.2, (z+nz)/2);
-                plank1.lookAt(nx, 3.2, nz);
-                plank1.castShadow = true;
-                fenceGroup.add(plank1);
-
-                let plank2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, dist + 0.2), matWood);
-                plank2.position.set((x+nx)/2, 1.8, (z+nz)/2);
-                plank2.lookAt(nx, 1.8, nz);
-                plank2.castShadow = true;
-                fenceGroup.add(plank2);
+                let plank1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, dist + 0.2), matWood); plank1.position.set((x+nx)/2, 3.2, (z+nz)/2); plank1.lookAt(nx, 3.2, nz); plank1.castShadow = true; fenceGroup.add(plank1);
+                let plank2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, dist + 0.2), matWood); plank2.position.set((x+nx)/2, 1.8, (z+nz)/2); plank2.lookAt(nx, 1.8, nz); plank2.castShadow = true; fenceGroup.add(plank2);
             }
             mapGroup.add(fenceGroup);
         } buildFence();
@@ -603,216 +651,170 @@
                 id: nextCowId++, level: level, type: type, isDragging: false, targetYRot: Math.random() * Math.PI * 2, velocity: 0, targetCow: null,
                 isHungry: isRestoredFed ? false : (Math.random() < 0.15), 
                 timeAlive: 0, eatTimeTarget: 30 + Math.random() * 15, isEating: false, eatTimer: 0, grassToEat: [], 
-                isFed: isRestoredFed, poopTimer: 30.0, stepTimer: 0.0, hasAura: false,
-                isUFOVictim: false
+                isFed: isRestoredFed, poopTimer: 30.0, stepTimer: 0.0, hasAura: false, isUFOVictim: false
             };
             
             if (!isRestoredFed && type === 'normal') totalSpawnedCows++;
 
             let baseColor = COW_COLORS[Math.min(level - 1, COW_COLORS.length - 1)];
             let matBody;
-            
-            if (type === 'alien') {
-                matBody = new THREE.MeshPhysicalMaterial({ color: 0x00ffff, transmission: 0.9, opacity: 1, transparent: true, roughness: 0.1, emissive: 0x0044ff, emissiveIntensity: 0.5 });
-            } else if (type === 'flood') {
-                matBody = new THREE.MeshStandardMaterial({ color: 0x0055ff, roughness: 0.2, flatShading: true });
-            } else {
-                matBody = new THREE.MeshStandardMaterial({ color: baseColor, roughness: 0.8, flatShading: true });
-            }
+            if (type === 'alien') { matBody = new THREE.MeshPhysicalMaterial({ color: 0x00ffff, transmission: 0.9, opacity: 1, transparent: true, roughness: 0.1, emissive: 0x0044ff, emissiveIntensity: 0.5 }); } 
+            else if (type === 'flood') { matBody = new THREE.MeshStandardMaterial({ color: 0x0055ff, roughness: 0.2, flatShading: true }); } 
+            else { matBody = new THREE.MeshStandardMaterial({ color: baseColor, roughness: 0.8, flatShading: true }); }
 
-            const matDark = new THREE.MeshStandardMaterial({ color: 0x333333, flatShading: true });
-            const matPink = new THREE.MeshStandardMaterial({ color: 0xffb6c1, flatShading: true });
-            const matBrown = new THREE.MeshStandardMaterial({ color: 0x8b4513, flatShading: true });
-
+            const matDark = new THREE.MeshStandardMaterial({ color: 0x333333, flatShading: true }); const matPink = new THREE.MeshStandardMaterial({ color: 0xffb6c1, flatShading: true }); const matBrown = new THREE.MeshStandardMaterial({ color: 0x8b4513, flatShading: true });
             const enableShadows = (mesh) => { mesh.castShadow = true; mesh.receiveShadow = true; };
 
             const animGroup = new THREE.Group(); animGroup.position.y = 2.5; cow.add(animGroup);
             const body = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2.2, 4.4), matBody); enableShadows(body); animGroup.add(body);
-
             const headGroup = new THREE.Group(); headGroup.position.set(0, 0.5, 2.5); animGroup.add(headGroup);
             const head = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 1.6), matBody); enableShadows(head); headGroup.add(head);
 
             const snout = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.8, 0.6), matPink); snout.position.set(0, -0.4, 1.1); enableShadows(snout); headGroup.add(snout);
-            const eyeGeo = new THREE.BoxGeometry(0.2, 0.4, 0.2);
-            const eyeL = new THREE.Mesh(eyeGeo, matDark); eyeL.position.set(0.6, 0.2, 0.85); headGroup.add(eyeL);
-            const eyeR = new THREE.Mesh(eyeGeo, matDark); eyeR.position.set(-0.6, 0.2, 0.85); headGroup.add(eyeR);
-            const hornGeo = new THREE.BoxGeometry(0.2, 0.6, 0.2);
-            const hornL = new THREE.Mesh(hornGeo, matDark); hornL.position.set(0.6, 1.1, 0); headGroup.add(hornL);
-            const hornR = new THREE.Mesh(hornGeo, matDark); hornR.position.set(-0.6, 1.1, 0); headGroup.add(hornR);
-
+            const eyeGeo = new THREE.BoxGeometry(0.2, 0.4, 0.2); const eyeL = new THREE.Mesh(eyeGeo, matDark); eyeL.position.set(0.6, 0.2, 0.85); headGroup.add(eyeL); const eyeR = new THREE.Mesh(eyeGeo, matDark); eyeR.position.set(-0.6, 0.2, 0.85); headGroup.add(eyeR);
+            const hornGeo = new THREE.BoxGeometry(0.2, 0.6, 0.2); const hornL = new THREE.Mesh(hornGeo, matDark); hornL.position.set(0.6, 1.1, 0); headGroup.add(hornL); const hornR = new THREE.Mesh(hornGeo, matDark); hornR.position.set(-0.6, 1.1, 0); headGroup.add(hornR);
             const udder = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.4, 1.6), matPink); udder.position.set(0, -1.3, -0.5); enableShadows(udder); animGroup.add(udder);
 
             const legGeo = new THREE.BoxGeometry(0.6, 1.4, 0.6); const hoofGeo = new THREE.BoxGeometry(0.65, 0.4, 0.65);
-            const createLeg = (x, z) => {
-                const legGroup = new THREE.Group(); legGroup.position.set(x, 0.7, z);
-                const leg = new THREE.Mesh(legGeo, matBody); enableShadows(leg); legGroup.add(leg);
-                const hoof = new THREE.Mesh(hoofGeo, matDark); hoof.position.y = -0.5; enableShadows(hoof); legGroup.add(hoof);
-                cow.add(legGroup); return legGroup;
-            };
-            cow.userData.legs = [ createLeg(1, 1.5), createLeg(-1, 1.5), createLeg(1, -1.5), createLeg(-1, -1.5) ];
-            cow.userData.animGroup = animGroup; cow.userData.headGroup = headGroup;
+            const createLeg = (x, z) => { const legGroup = new THREE.Group(); legGroup.position.set(x, 0.7, z); const leg = new THREE.Mesh(legGeo, matBody); enableShadows(leg); legGroup.add(leg); const hoof = new THREE.Mesh(hoofGeo, matDark); hoof.position.y = -0.5; enableShadows(hoof); legGroup.add(hoof); cow.add(legGroup); return legGroup; };
+            cow.userData.legs = [ createLeg(1, 1.5), createLeg(-1, 1.5), createLeg(1, -1.5), createLeg(-1, -1.5) ]; cow.userData.animGroup = animGroup; cow.userData.headGroup = headGroup;
 
-            const stepSound = new THREE.PositionalAudio(listener);
-            stepSound.setBuffer(grassStepBuffer); stepSound.setRefDistance(1.5); stepSound.setMaxDistance(10); stepSound.setVolume(0.3);
-            cow.add(stepSound); cow.userData.stepSound = stepSound;
-
+            const stepSound = new THREE.PositionalAudio(listener); stepSound.setBuffer(grassStepBuffer); stepSound.setRefDistance(1.5); stepSound.setMaxDistance(10); stepSound.setVolume(0.3); cow.add(stepSound); cow.userData.stepSound = stepSound;
             cow.position.set(px, GROUND_LEVEL, pz); cow.rotation.y = cow.userData.targetYRot;
             
-            if (isRestoredFed || type === 'alien' || type === 'flood') {
-                let col = type==='alien'?0xffff00:(type==='flood'?0x00ffff:0xffffaa);
-                addAura(cow, col);
-                cow.userData.isHungry = false; cow.userData.isFed = true;
-            }
-
-            cowGroup.add(cow); cows.push(cow);
-            unlockCowInCollection(type === 'normal' ? level : type);
-
-            return cow;
+            if (isRestoredFed || type === 'alien' || type === 'flood') { let col = type==='alien'?0xffff00:(type==='flood'?0x00ffff:0xffffaa); addAura(cow, col); cow.userData.isHungry = false; cow.userData.isFed = true; }
+            cowGroup.add(cow); cows.push(cow); unlockCowInCollection(type === 'normal' ? level : type); return cow;
         }
 
         // ==========================================
         // UI & SISTEMA DE COMPRA & COLEÇÃO
         // ==========================================
-        function abbreviate(v) {
-            if (v < 1000) return Math.floor(v).toString();
-            const u = ["", "K", "M", "B", "T"]; let idx = 0; while (v >= 1000 && idx < u.length - 1) { v /= 1000; idx++; }
-            return v.toFixed(1).replace(/\.0$/, '') + u[idx];
-        }
-
+        function abbreviate(v) { if (v < 1000) return Math.floor(v).toString(); const u = ["", "K", "M", "B", "T"]; let idx = 0; while (v >= 1000 && idx < u.length - 1) { v /= 1000; idx++; } return v.toFixed(1).replace(/\.0$/, '') + u[idx]; }
         function getCowPrice() { return Math.floor(PRECO_INICIAL * Math.pow(MULTIPLICADOR_CUSTO, totalCompras)); }
-        function getCowIncome(cow) { 
-            if(cow.userData.type === 'alien') return 500000;
-            if(cow.userData.type === 'flood') return 100000;
-            return cow.userData.isFed ? (INCOME_PER_LEVEL[cow.userData.level]||0)*2 : (INCOME_PER_LEVEL[cow.userData.level]||0); 
-        }
+        function getCowIncome(cow) { if(cow.userData.type === 'alien') return 500000; if(cow.userData.type === 'flood') return 100000; return cow.userData.isFed ? (INCOME_PER_LEVEL[cow.userData.level]||0)*2 : (INCOME_PER_LEVEL[cow.userData.level]||0); }
 
         function updateUI() {
             document.getElementById('money-display').innerText = abbreviate(money);
             document.getElementById('price-display').innerText = abbreviate(getCowPrice());
             document.getElementById('cows-display').innerText = abbreviate(totalSpawnedCows);
-            let income = cows.reduce((sum, c) => sum + getCowIncome(c), 0);
-            document.getElementById('income-display').innerText = abbreviate(income);
-            document.getElementById('btn-buy').disabled = money < getCowPrice();
-            saveGame();
+            let income = cows.reduce((sum, c) => sum + getCowIncome(c), 0); document.getElementById('income-display').innerText = abbreviate(income);
+            document.getElementById('btn-buy').disabled = money < getCowPrice(); saveGame();
         }
 
         document.getElementById('btn-buy').addEventListener('click', () => {
             let price = getCowPrice();
-            if (money >= price) {
-                money -= price; totalCompras++;
-                let x, z; do { x = (Math.random() - 0.5) * 40; z = (Math.random() - 0.5) * 40; } while(isColliding(x, z));
-                let cow = createVoxelCow(1, x, z); cow.position.y = 10; updateUI(); SFX.buy(); 
-            }
+            if (money >= price) { money -= price; totalCompras++; let x, z; do { x = (Math.random() - 0.5) * 40; z = (Math.random() - 0.5) * 40; } while(isColliding(x, z)); let cow = createVoxelCow(1, x, z); cow.position.y = 10; updateUI(); SFX.buy(); }
         });
 
         const COLLECTION_DATA = [];
         for(let i=1; i<=10; i++) COLLECTION_DATA.push({ id: i, name: 'Vaca Nv.'+i, color: COW_COLORS[i-1] || 0xffffff });
-        COLLECTION_DATA.push({ id: 'alien', name: 'Vaca Alien', color: 0x00ffff });
-        COLLECTION_DATA.push({ id: 'flood', name: 'Vaca Inundação', color: 0x0055ff });
+        COLLECTION_DATA.push({ id: 'alien', name: 'Vaca Alien', color: 0x00ffff }); COLLECTION_DATA.push({ id: 'flood', name: 'Vaca Inundação', color: 0x0055ff });
 
         function drawCowThumb(canvas, color, isAlien) {
-            const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,64,64);
-            ctx.fillStyle = '#' + color.toString(16).padStart(6, '0');
-            ctx.fillRect(16, 20, 32, 24); // body
-            ctx.fillRect(36, 12, 16, 16); // head
-            ctx.fillStyle = '#ffb6c1'; ctx.fillRect(44, 20, 10, 8); // snout
-            ctx.fillStyle = '#333'; ctx.fillRect(40, 16, 4, 4); // eye
-            ctx.fillRect(20, 44, 6, 12); ctx.fillRect(38, 44, 6, 12); // legs
-            if(isAlien) { ctx.strokeStyle = '#ff0'; ctx.lineWidth=2; ctx.strokeRect(14,18,36,28); }
+            const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,64,64); ctx.fillStyle = '#' + color.toString(16).padStart(6, '0');
+            ctx.fillRect(16, 20, 32, 24); ctx.fillRect(36, 12, 16, 16); ctx.fillStyle = '#ffb6c1'; ctx.fillRect(44, 20, 10, 8); ctx.fillStyle = '#333'; ctx.fillRect(40, 16, 4, 4);
+            ctx.fillRect(20, 44, 6, 12); ctx.fillRect(38, 44, 6, 12); if(isAlien) { ctx.strokeStyle = '#ff0'; ctx.lineWidth=2; ctx.strokeRect(14,18,36,28); }
         }
 
-        function unlockCowInCollection(id) {
-            if (!unlockedCows[id]) {
-                unlockedCows[id] = true; localStorage.setItem('MergeCow_Collection', JSON.stringify(unlockedCows));
-                renderCollection();
-            }
-        }
-
-        window.openCollection = () => {
-            document.getElementById('modal-collection').style.display = 'flex';
-            renderCollection();
-        };
+        function unlockCowInCollection(id) { if (!unlockedCows[id]) { unlockedCows[id] = true; localStorage.setItem('MergeCow_Collection', JSON.stringify(unlockedCows)); renderCollection(); } }
+        window.openCollection = () => { document.getElementById('modal-collection').style.display = 'flex'; renderCollection(); };
 
         function renderCollection() {
             const grid = document.getElementById('collection-grid'); grid.innerHTML = '';
             COLLECTION_DATA.forEach(c => {
-                let card = document.createElement('div');
-                let isUnlocked = unlockedCows[c.id];
-                card.className = 'cow-card ' + (isUnlocked ? '' : 'locked');
-                let canvas = document.createElement('canvas'); canvas.width=64; canvas.height=64;
-                drawCowThumb(canvas, c.color, c.id==='alien');
-                card.appendChild(canvas);
+                let card = document.createElement('div'); let isUnlocked = unlockedCows[c.id]; card.className = 'cow-card ' + (isUnlocked ? '' : 'locked');
+                let canvas = document.createElement('canvas'); canvas.width=64; canvas.height=64; drawCowThumb(canvas, c.color, c.id==='alien'); card.appendChild(canvas);
                 let title = document.createElement('p'); title.innerText = isUnlocked ? c.name : '???'; card.appendChild(title);
                 let lvl = document.createElement('span'); lvl.className = 'level'; lvl.innerText = typeof c.id === 'number' ? `Level ${c.id}` : 'Evento'; card.appendChild(lvl);
                 grid.appendChild(card);
             });
         }
 
-        // LEADERBOARD & ADMIN
-        let userFlag = "un"; 
-        fetch('https://get.geojs.io/v1/ip/country.json').then(res => res.json()).then(data => { if(data.country) userFlag = data.country.toLowerCase(); }).catch(e => {});
-        let currentLBTab = 'money'; let lbData = JSON.parse(localStorage.getItem('MergeCow_LB')) || { money: [], cows: [] };
+        // ==========================================
+        // UI LEADERBOARD E ADMIN
+        // ==========================================
+        let isAdminAccessGranted = false;
 
         window.openLeaderboard = () => { document.getElementById('modal-leaderboard').style.display = 'flex'; renderLB(); };
         window.switchLBTab = (tab) => {
-            currentLBTab = tab; document.getElementById('tab-money').className = tab === 'money' ? 'btn-primary btn-active' : 'btn-primary';
-            document.getElementById('tab-cows').className = tab === 'cows' ? 'btn-primary btn-active' : 'btn-primary';
-            document.getElementById('lb-score-header').innerText = tab === 'money' ? 'Fortuna ($)' : 'Vacas Totais'; 
-            renderLB();
+            currentLBTab = tab; document.getElementById('tab-money').className = tab === 'money' ? 'btn-primary btn-active' : 'btn-primary'; document.getElementById('tab-cows').className = tab === 'cows' ? 'btn-primary btn-active' : 'btn-primary';
+            document.getElementById('lb-score-header').innerText = tab === 'money' ? 'Fortuna ($)' : 'Vacas Totais'; renderLB();
             if (isAdminAccessGranted) renderAdminLB();
         };
 
         function renderLB() {
-            const tbody = document.getElementById('lb-body'); tbody.innerHTML = '';
-            const list = lbData[currentLBTab];
+            const tbody = document.getElementById('lb-body'); tbody.innerHTML = ''; const list = lbData[currentLBTab];
             if(list.length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; opacity:0.5;">Nenhum registro.</td></tr>'; return; }
             list.forEach((entry, index) => {
                 let tr = document.createElement('tr');
                 tr.innerHTML = `<td>${index + 1}</td><td><img src="https://flagcdn.com/24x18/${entry.flag}.png" alt="${entry.flag}" style="vertical-align: middle; border-radius: 2px;"></td>
-                    <td>${entry.name}</td><td style="color:var(--accent); font-weight:bold;">${currentLBTab==='money' ? '$':''}${abbreviate(entry.score)}</td>`;
-                tbody.appendChild(tr);
+                    <td>${entry.name}</td><td style="color:var(--accent); font-weight:bold;">${currentLBTab==='money' ? '$':''}${abbreviate(entry.score)}</td>`; tbody.appendChild(tr);
             });
         }
 
-        window.submitScore = () => {
+        window.submitScore = async () => {
             let nick = document.getElementById('lb-nickname').value.toUpperCase().trim(); 
-            if (!nick) {
-                alert("Por favor, digite um apelido para enviar sua pontuação!");
-                return;
-            }
+            if (!nick) { alert("Por favor, digite um apelido para enviar sua pontuação!"); return; }
             if (nick.length > 5) nick = nick.substring(0, 5);
             
+            let btn = document.querySelector('.lb-input-group button');
+            btn.innerText = "ENVIANDO..."; btn.disabled = true;
+
             if (currentLBTab === 'money') {
-                if (money <= 0) return;
-                let mIndex = lbData.money.findIndex(e => e.name === nick);
-                if(mIndex > -1) { lbData.money[mIndex].score = Math.max(lbData.money[mIndex].score, money); lbData.money[mIndex].flag = userFlag; } else { lbData.money.push({name: nick, flag: userFlag, score: money}); }
-                lbData.money.sort((a,b) => b.score - a.score); if(lbData.money.length > 10) lbData.money.length = 10;
-                money = 0;
+                if (money > 0) { await saveGlobalScore(nick, userFlag, money, 'money'); money = 0; }
             } else if (currentLBTab === 'cows') {
-                if (totalSpawnedCows <= 0) return;
-                let cIndex = lbData.cows.findIndex(e => e.name === nick);
-                if(cIndex > -1) { lbData.cows[cIndex].score = Math.max(lbData.cows[cIndex].score, totalSpawnedCows); lbData.cows[cIndex].flag = userFlag; } else { lbData.cows.push({name: nick, flag: userFlag, score: totalSpawnedCows}); }
-                lbData.cows.sort((a,b) => b.score - a.score); if(lbData.cows.length > 10) lbData.cows.length = 10;
-                totalSpawnedCows = 0;
+                if (totalSpawnedCows > 0) { await saveGlobalScore(nick, userFlag, totalSpawnedCows, 'cows'); totalSpawnedCows = 0; }
             }
-            localStorage.setItem('MergeCow_LB', JSON.stringify(lbData)); updateUI(); renderLB();
+            
+            await loadGlobalLeaderboard(); localStorage.setItem('MergeCow_LB', JSON.stringify(lbData)); updateUI(); renderLB();
             if (isAdminAccessGranted) renderAdminLB();
+            btn.innerText = "ENVIAR DA ABA ATUAL"; btn.disabled = false;
+        };
+
+        window.renderAdminLB = () => {
+            const container = document.getElementById('admin-lb-content'); const tab = document.getElementById('admin-tab-select').value; container.innerHTML = '';
+            if(!lbData || !lbData[tab] || lbData[tab].length === 0) { container.innerHTML = '<div style="font-size:12px; color:gray; text-align:center;">Leaderboard Vazio</div>'; return; }
+
+            lbData[tab].forEach((entry, idx) => {
+                let row = document.createElement('div'); row.style.display = 'flex'; row.style.gap = '5px'; row.style.alignItems = 'center'; row.style.justifyContent = 'space-between';
+                let nameSpan = document.createElement('span'); nameSpan.style.width = '60px'; nameSpan.style.overflow = 'hidden'; nameSpan.style.fontSize = '12px'; nameSpan.style.color = 'white'; nameSpan.innerText = entry.name;
+                let inputScore = document.createElement('input'); inputScore.type = 'number'; inputScore.value = entry.score; inputScore.style.width = '70px'; inputScore.style.background = 'rgba(0,0,0,0.5)'; inputScore.style.color = 'var(--accent)'; inputScore.style.border = '1px solid var(--glass-border)'; inputScore.style.borderRadius = '4px'; inputScore.style.padding = '2px 5px';
+                
+                let btnSave = document.createElement('button'); btnSave.innerHTML = '💾'; btnSave.title = "Salvar"; btnSave.style.padding = '2px 5px'; btnSave.style.background = 'transparent'; btnSave.style.border = 'none'; btnSave.style.cursor = 'pointer';
+                btnSave.onclick = async () => {
+                    let newScore = Number(inputScore.value);
+                    if(!isNaN(newScore)) {
+                        btnSave.innerText = "⏳";
+                        if (entry.id) { await updateGlobalScoreAdmin(entry.id, newScore); } 
+                        else { lbData[tab][idx].score = newScore; lbData[tab].sort((a,b) => b.score - a.score); localStorage.setItem('MergeCow_LB', JSON.stringify(lbData)); }
+                        await loadGlobalLeaderboard(); renderLB(); renderAdminLB();
+                    }
+                };
+
+                let btnDel = document.createElement('button'); btnDel.innerHTML = '❌'; btnDel.title = "Remover"; btnDel.style.padding = '2px 5px'; btnDel.style.background = 'transparent'; btnDel.style.border = 'none'; btnDel.style.cursor = 'pointer';
+                btnDel.onclick = async () => {
+                    if(confirm('Tem certeza que deseja remover o jogador ' + entry.name + '?')) {
+                        btnDel.innerText = "⏳";
+                        if (entry.id) { await deleteGlobalScore(entry.id); } 
+                        else { lbData[tab].splice(idx, 1); localStorage.setItem('MergeCow_LB', JSON.stringify(lbData)); }
+                        await loadGlobalLeaderboard(); renderLB(); renderAdminLB();
+                    }
+                };
+
+                let acts = document.createElement('div'); acts.style.display = 'flex'; acts.appendChild(btnSave); acts.appendChild(btnDel);
+                row.appendChild(nameSpan); row.appendChild(inputScore); row.appendChild(acts); container.appendChild(row);
+            });
         };
 
         // ==========================================
-        // RAYCASTER (CLIQUES E EVENTO METEORO)
+        // RAYCASTER (CLIQUES)
         // ==========================================
         const raycaster = new THREE.Raycaster(); const mouse = new THREE.Vector2();
         let draggedCow = null; let offset = new THREE.Vector3();
-        let raycastTargets = [];
 
-        function getCowFromIntersect(intersectedObject) {
-            let obj = intersectedObject; while(obj.parent && obj.parent !== cowGroup) { obj = obj.parent; }
-            return obj === cowGroup ? null : obj;
-        }
+        function getCowFromIntersect(intersectedObject) { let obj = intersectedObject; while(obj.parent && obj.parent !== cowGroup) { obj = obj.parent; } return obj === cowGroup ? null : obj; }
 
         window.addEventListener('pointerdown', (event) => {
-            // Previne que o click na UI dispare no 3D
             if(event.button !== 0 || event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT' || event.target.tagName === 'SELECT' || event.target.closest('#event-panel')) return;
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1; mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
             raycaster.setFromCamera(mouse, camera);
@@ -820,63 +822,39 @@
             if (meteor.mesh && meteor.phase === 'landed') {
                 let intersectsMeteor = raycaster.intersectObject(meteor.mesh);
                 if (intersectsMeteor.length > 0) {
-                    meteor.clicks++; SFX.click();
-                    meteor.mesh.scale.setScalar(1 + Math.random()*0.2); setTimeout(()=> {if(meteor.mesh) meteor.mesh.scale.setScalar(1);}, 50);
-                    createFloatingText("BAM!", meteor.mesh.position.x, meteor.mesh.position.z);
-                    if(meteor.clicks >= 100) meteor.phase = 'sinking';
-                    return;
+                    meteor.clicks++; SFX.click(); meteor.mesh.scale.setScalar(1 + Math.random()*0.2); setTimeout(()=> {if(meteor.mesh) meteor.mesh.scale.setScalar(1);}, 50); createFloatingText("BAM!", meteor.mesh.position.x, meteor.mesh.position.z);
+                    if(meteor.clicks >= 100) meteor.phase = 'sinking'; return;
                 }
             }
 
             let intersectsPoop = raycaster.intersectObjects(poopGroup.children, true);
-            if (intersectsPoop.length > 0) {
-                let p = intersectsPoop[0].object; money += p.userData.value; updateUI();
-                createFloatingText("+$" + abbreviate(p.userData.value), p.position.x, p.position.z);
-                poopGroup.remove(p); SFX.poopCollect(); return;
-            }
+            if (intersectsPoop.length > 0) { let p = intersectsPoop[0].object; money += p.userData.value; updateUI(); createFloatingText("+$" + abbreviate(p.userData.value), p.position.x, p.position.z); poopGroup.remove(p); SFX.poopCollect(); return; }
 
             let intersects = raycaster.intersectObjects(cowGroup.children, true);
             if (intersects.length > 0) {
                 let cow = getCowFromIntersect(intersects[0].object);
-                if(cow && !cow.userData.isUFOVictim) {
-                    controls.enabled = false; draggedCow = cow; draggedCow.userData.isDragging = true; draggedCow.position.y = Math.max(GROUND_LEVEL+3, water.level+3);
-                    if(raycaster.ray.intersectPlane(intersectionPlane, offset)) { offset.sub(draggedCow.position); }
-                }
+                if(cow && !cow.userData.isUFOVictim) { controls.enabled = false; draggedCow = cow; draggedCow.userData.isDragging = true; draggedCow.position.y = Math.max(GROUND_LEVEL+3, water.level+3); if(raycaster.ray.intersectPlane(intersectionPlane, offset)) { offset.sub(draggedCow.position); } }
             }
         });
 
         window.addEventListener('pointermove', (event) => {
-            if (!draggedCow) return;
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1; mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-            raycaster.setFromCamera(mouse, camera); let intersectPoint = new THREE.Vector3();
+            if (!draggedCow) return; mouse.x = (event.clientX / window.innerWidth) * 2 - 1; mouse.y = -(event.clientY / window.innerHeight) * 2 + 1; raycaster.setFromCamera(mouse, camera); let intersectPoint = new THREE.Vector3();
             if(raycaster.ray.intersectPlane(intersectionPlane, intersectPoint)) {
                 let nX = intersectPoint.x - offset.x; let nZ = intersectPoint.z - offset.z;
-                if (!isColliding(nX, draggedCow.position.z)) draggedCow.position.x = nX;
-                if (!isColliding(draggedCow.position.x, nZ)) draggedCow.position.z = nZ;
+                if (!isColliding(nX, draggedCow.position.z)) draggedCow.position.x = nX; if (!isColliding(draggedCow.position.x, nZ)) draggedCow.position.z = nZ;
             }
         });
 
         window.addEventListener('pointerup', () => {
-            if (!draggedCow) return;
-            draggedCow.position.y = Math.max(GROUND_LEVEL, water.level); draggedCow.userData.isDragging = false;
-            for (let i = 0; i < cows.length; i++) {
-                let otherCow = cows[i]; if (otherCow === draggedCow || draggedCow.userData.type !== 'normal' || otherCow.userData.type !== 'normal') continue;
-                if (draggedCow.userData.level === otherCow.userData.level && draggedCow.position.distanceTo(otherCow.position) < 5) {
-                    performMerge3D(draggedCow, otherCow); break;
-                }
-            }
+            if (!draggedCow) return; draggedCow.position.y = Math.max(GROUND_LEVEL, water.level); draggedCow.userData.isDragging = false;
+            for (let i = 0; i < cows.length; i++) { let otherCow = cows[i]; if (otherCow === draggedCow || draggedCow.userData.type !== 'normal' || otherCow.userData.type !== 'normal') continue; if (draggedCow.userData.level === otherCow.userData.level && draggedCow.position.distanceTo(otherCow.position) < 5) { performMerge3D(draggedCow, otherCow); break; } }
             draggedCow = null; controls.enabled = true;
         });
 
-        function performMerge3D(c1, c2) {
-            let nextLevel = c1.userData.level + 1; let mx = (c1.position.x + c2.position.x) / 2; let mz = (c1.position.z + c2.position.z) / 2;
-            cowGroup.remove(c1); cowGroup.remove(c2); cows = cows.filter(c => c !== c1 && c !== c2);
-            let newCow = createVoxelCow(nextLevel, mx, mz); newCow.position.y = 5; 
-            createFloatingText("MERGE!", mx, mz); updateUI(); SFX.merge();
-        }
+        function performMerge3D(c1, c2) { let nextLevel = c1.userData.level + 1; let mx = (c1.position.x + c2.position.x) / 2; let mz = (c1.position.z + c2.position.z) / 2; cowGroup.remove(c1); cowGroup.remove(c2); cows = cows.filter(c => c !== c1 && c !== c2); let newCow = createVoxelCow(nextLevel, mx, mz); newCow.position.y = 5; createFloatingText("MERGE!", mx, mz); updateUI(); SFX.merge(); }
 
         // ==========================================
-        // OBJETOS DOS EVENTOS E EVENT LISTENERS UI (ADMIN)
+        // OBJETOS DOS EVENTOS E CONTROLES UI
         // ==========================================
         const meteor = { active: false, timer: 0, phase: 'none', clicks: 0, mesh: null, fireParts: [] };
         const ufoEvent = { active: false, timer: 0, phase: 'none', ufoGroup: null, beam: null, targetCow: null };
@@ -888,320 +866,130 @@
         const waterMesh = new THREE.Mesh(waterGeo, waterMat); waterMesh.position.y = GROUND_LEVEL - 5; scene.add(waterMesh);
         const water = { level: GROUND_LEVEL - 5, targetLevel: GROUND_LEVEL - 5 };
         
-        let isAdminAccessGranted = false;
-
         document.getElementById('event-toggle').addEventListener('click', function() {
             if (!isAdminAccessGranted) {
                 let code = prompt("CÓDIGO DE ADMINISTRADOR NECESSÁRIO:");
-                if (code !== "2203") {
-                    if (code !== null) alert("Código incorreto. Acesso bloqueado.");
-                    return;
-                }
+                if (code !== "2203") { if (code !== null) alert("Código incorreto. Acesso bloqueado."); return; }
                 isAdminAccessGranted = true;
             }
-
             const btns = document.getElementById('event-buttons');
-            if(btns.style.display === 'none' || btns.style.display === '') {
-                btns.style.display = 'flex';
-                this.innerText = '▲ Painel de Controle (ADMIN) ▲';
-                renderAdminLB();
-            } else {
-                btns.style.display = 'none';
-                this.innerText = '▼ Controle de Eventos ▼';
-            }
+            if(btns.style.display === 'none' || btns.style.display === '') { btns.style.display = 'flex'; this.innerText = '▲ Painel de Controle (ADMIN) ▲'; renderAdminLB(); } 
+            else { btns.style.display = 'none'; this.innerText = '▼ Controle de Eventos ▼'; }
         });
 
-        window.renderAdminLB = () => {
-            const container = document.getElementById('admin-lb-content');
-            const tab = document.getElementById('admin-tab-select').value;
-            container.innerHTML = '';
-            
-            if(!lbData || !lbData[tab] || lbData[tab].length === 0) {
-                container.innerHTML = '<div style="font-size:12px; color:gray; text-align:center;">Leaderboard Vazio</div>';
-                return;
-            }
-
-            lbData[tab].forEach((entry, idx) => {
-                let row = document.createElement('div');
-                row.style.display = 'flex'; row.style.gap = '5px'; row.style.alignItems = 'center'; row.style.justifyContent = 'space-between';
-                
-                let nameSpan = document.createElement('span');
-                nameSpan.style.width = '60px'; nameSpan.style.overflow = 'hidden'; nameSpan.style.fontSize = '12px'; nameSpan.style.color = 'white';
-                nameSpan.innerText = entry.name;
-                
-                let inputScore = document.createElement('input');
-                inputScore.type = 'number'; inputScore.value = entry.score;
-                inputScore.style.width = '70px'; inputScore.style.background = 'rgba(0,0,0,0.5)'; inputScore.style.color = 'var(--accent)'; inputScore.style.border = '1px solid var(--glass-border)'; inputScore.style.borderRadius = '4px'; inputScore.style.padding = '2px 5px';
-                
-                let btnSave = document.createElement('button');
-                btnSave.innerHTML = '💾'; btnSave.title = "Salvar"; btnSave.style.padding = '2px 5px'; btnSave.style.background = 'transparent'; btnSave.style.border = 'none'; btnSave.style.cursor = 'pointer';
-                btnSave.onclick = () => {
-                    let newScore = Number(inputScore.value);
-                    if(!isNaN(newScore)) {
-                        lbData[tab][idx].score = newScore;
-                        lbData[tab].sort((a,b) => b.score - a.score);
-                        localStorage.setItem('MergeCow_LB', JSON.stringify(lbData));
-                        renderLB();
-                        renderAdminLB();
-                    }
-                };
-
-                let btnDel = document.createElement('button');
-                btnDel.innerHTML = '❌'; btnDel.title = "Remover"; btnDel.style.padding = '2px 5px'; btnDel.style.background = 'transparent'; btnDel.style.border = 'none'; btnDel.style.cursor = 'pointer';
-                btnDel.onclick = () => {
-                    if(confirm('Tem certeza que deseja remover o jogador ' + entry.name + '?')) {
-                        lbData[tab].splice(idx, 1);
-                        localStorage.setItem('MergeCow_LB', JSON.stringify(lbData));
-                        renderLB();
-                        renderAdminLB();
-                    }
-                };
-
-                let acts = document.createElement('div');
-                acts.style.display = 'flex';
-                acts.appendChild(btnSave);
-                acts.appendChild(btnDel);
-
-                row.appendChild(nameSpan);
-                row.appendChild(inputScore);
-                row.appendChild(acts);
-                container.appendChild(row);
-            });
-        };
-
         function triggerManualEvent(startFunc) {
-            if (meteor.active || ufoEvent.active || flood.active) return; // 1 evento por vez
-            setTimeout(() => {
-                if (!meteor.active && !ufoEvent.active && !flood.active) startFunc();
-            }, 1000); // 1 segundo de delay
+            if (meteor.active || ufoEvent.active || flood.active) return;
+            setTimeout(() => { if (!meteor.active && !ufoEvent.active && !flood.active) startFunc(); }, 1000); 
         }
 
-        document.getElementById('btn-ev-meteor').addEventListener('click', () => triggerManualEvent(startMeteorEvent));
-        document.getElementById('btn-ev-ufo').addEventListener('click', () => triggerManualEvent(startUFOEvent));
-        document.getElementById('btn-ev-flood').addEventListener('click', () => triggerManualEvent(startFloodEvent));
+        document.getElementById('btn-ev-meteor').addEventListener('click', () => triggerManualEvent(startMeteorEvent)); document.getElementById('btn-ev-ufo').addEventListener('click', () => triggerManualEvent(startUFOEvent)); document.getElementById('btn-ev-flood').addEventListener('click', () => triggerManualEvent(startFloodEvent));
 
-        // Timer Checkers Eventos Aleatorios (Background) - 1 por vez garantido 
         setInterval(() => {
-            // Se já existe algum evento principal acontecendo, não tenta iniciar outro
             if (meteor.active || flood.active || ufoEvent.active) return;
+            if (Math.random() < 0.05) { startMeteorEvent(); } 
+            else if (Math.random() < 0.1 && cows.length > 0) { startUFOEvent(); } 
+            else if (Math.random() < 0.3) { startFloodEvent(); } 
+            else if (Math.random() < 0.5 && cows.length > 0) { SFX.cough(); createFloatingText("*Cof*", cows[0].position.x, cows[0].position.z); }
+        }, 60000);
 
-            // A estrutura "else if" garante a regra de exclusividade: apenas UM acontece.
-            // Ordem de verificação do mais raro para o mais comum.
-            if (Math.random() < 0.05) {
-                startMeteorEvent();
-            } 
-            else if (Math.random() < 0.1 && cows.length > 0) {
-                startUFOEvent();
-            } 
-            else if (Math.random() < 0.3) {
-                startFloodEvent();
-            } 
-            else if (Math.random() < 0.5 && cows.length > 0) {
-                SFX.cough(); 
-                createFloatingText("*Cof*", cows[0].position.x, cows[0].position.z);
-            }
-        }, 60000); // Roda a cada 1 minuto exato
-
-        function startMeteorEvent() {
-            meteor.active = true; meteor.timer = 0; meteor.phase = 'pre1'; meteor.clicks = 0;
-            windMat.color.setHex(0x00ff00);
-        }
+        function startMeteorEvent() { meteor.active = true; meteor.timer = 0; meteor.phase = 'pre1'; meteor.clicks = 0; windMat.color.setHex(0x00ff00); }
 
         function startUFOEvent() {
             let validCows = cows.filter(c => c.userData.type === 'normal'); if(validCows.length===0) return;
-            ufoEvent.active = true; ufoEvent.timer = 0; ufoEvent.phase = 'arrive';
-            ufoEvent.targetCow = validCows[Math.floor(Math.random()*validCows.length)];
-            ufoEvent.targetCow.userData.isUFOVictim = true;
-            
+            ufoEvent.active = true; ufoEvent.timer = 0; ufoEvent.phase = 'arrive'; ufoEvent.targetCow = validCows[Math.floor(Math.random()*validCows.length)]; ufoEvent.targetCow.userData.isUFOVictim = true;
             if(!ufoEvent.ufoGroup) {
-                ufoEvent.ufoGroup = new THREE.Group();
-                let saucer = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 1, 16), ufoMat); ufoEvent.ufoGroup.add(saucer);
+                ufoEvent.ufoGroup = new THREE.Group(); let saucer = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 1, 16), ufoMat); ufoEvent.ufoGroup.add(saucer);
                 let dome = new THREE.Mesh(new THREE.SphereGeometry(3, 16, 16, 0, Math.PI*2, 0, Math.PI/2), domeMat); dome.position.y = 0.5; ufoEvent.ufoGroup.add(dome);
-                ufoEvent.beam = new THREE.Mesh(new THREE.CylinderGeometry(2, 4, 30, 16), new THREE.MeshBasicMaterial({color: 0x00ffff, transparent: true, opacity: 0.3, side: THREE.DoubleSide}));
-                ufoEvent.beam.position.y = -15; ufoEvent.beam.visible = false; ufoEvent.ufoGroup.add(ufoEvent.beam);
-                scene.add(ufoEvent.ufoGroup);
+                ufoEvent.beam = new THREE.Mesh(new THREE.CylinderGeometry(2, 4, 30, 16), new THREE.MeshBasicMaterial({color: 0x00ffff, transparent: true, opacity: 0.3, side: THREE.DoubleSide})); ufoEvent.beam.position.y = -15; ufoEvent.beam.visible = false; ufoEvent.ufoGroup.add(ufoEvent.beam); scene.add(ufoEvent.ufoGroup);
             }
             ufoEvent.ufoGroup.position.set(0, 50, 0); ufoEvent.ufoGroup.scale.setScalar(1); ufoEvent.ufoGroup.visible = true;
         }
 
         function startFloodEvent() {
-            flood.active = true; flood.timer = 0;
-            
-            let existingFloodCow = cows.find(c => c.userData.type === 'flood');
-            if(existingFloodCow) {
-                flood.phase = 'protect'; flood.isProtecting = true; flood.cow = existingFloodCow;
-            } else {
-                flood.phase = 'clouds'; flood.isProtecting = false;
-            }
-
+            flood.active = true; flood.timer = 0; let existingFloodCow = cows.find(c => c.userData.type === 'flood');
+            if(existingFloodCow) { flood.phase = 'protect'; flood.isProtecting = true; flood.cow = existingFloodCow; } else { flood.phase = 'clouds'; flood.isProtecting = false; }
             const cloudGeo = new THREE.SphereGeometry(6, 7, 7);
-            for(let i=0; i<5; i++) {
-                let cm = new THREE.Mesh(cloudGeo, new THREE.MeshStandardMaterial({color: 0xffffff, transparent: true, opacity: 0.9}));
-                cm.position.set((Math.random()-0.5)*40, 25 + Math.random()*5, (Math.random()-0.5)*40);
-                cm.scale.set(1, 0.5, 1); scene.add(cm); flood.clouds.push(cm);
-            }
-
+            for(let i=0; i<5; i++) { let cm = new THREE.Mesh(cloudGeo, new THREE.MeshStandardMaterial({color: 0xffffff, transparent: true, opacity: 0.9})); cm.position.set((Math.random()-0.5)*40, 25 + Math.random()*5, (Math.random()-0.5)*40); cm.scale.set(1, 0.5, 1); scene.add(cm); flood.clouds.push(cm); }
             if(!flood.rainParts) {
                 const rGeo = new THREE.BufferGeometry(); const rPos = new Float32Array(2000 * 3);
                 for(let i=0; i<2000; i++) { rPos[i*3]=(Math.random()-0.5)*80; rPos[i*3+1]=Math.random()*40; rPos[i*3+2]=(Math.random()-0.5)*80; }
-                rGeo.setAttribute('position', new THREE.BufferAttribute(rPos, 3));
-                flood.rainParts = new THREE.Points(rGeo, new THREE.PointsMaterial({color: 0xaaaaff, size: 0.2, transparent: true, opacity: 0.6}));
-                scene.add(flood.rainParts);
+                rGeo.setAttribute('position', new THREE.BufferAttribute(rPos, 3)); flood.rainParts = new THREE.Points(rGeo, new THREE.PointsMaterial({color: 0xaaaaff, size: 0.2, transparent: true, opacity: 0.6})); scene.add(flood.rainParts);
             }
             flood.rainParts.visible = false;
         }
 
         // ==========================================
-        // ANIMAÇÃO CORE & FÍSICA E EVENTOS
+        // ANIMAÇÃO CORE E FÍSICA
         // ==========================================
-        window.toggleAutoFuse = () => {
-            autoFuseActive = !autoFuseActive;
-            const btn = document.getElementById('btn-auto-fuse'); btn.innerText = autoFuseActive ? "🤖 Auto-Fuse: ON" : "🤖 Auto-Fuse: OFF"; btn.className = autoFuseActive ? "btn-primary" : "";
-        };
-
+        window.toggleAutoFuse = () => { autoFuseActive = !autoFuseActive; const btn = document.getElementById('btn-auto-fuse'); btn.innerText = autoFuseActive ? "🤖 Auto-Fuse: ON" : "🤖 Auto-Fuse: OFF"; btn.className = autoFuseActive ? "btn-primary" : ""; };
         const clock = new THREE.Clock();
 
         function animate() {
             requestAnimationFrame(animate);
             let delta = Math.min(clock.getDelta(), 0.1); let time = clock.getElapsedTime();
-
             controls.update(); cows.forEach(c => c.userData.targetCow = null);
 
-            // ====== LÓGICA DO EVENTO METEORO ======
             if (meteor.active) {
                 meteor.timer += delta;
-                if (meteor.phase === 'pre1') {
-                    scene.background.lerpColors(originalFogColor, new THREE.Color(0xff00ff), meteor.timer / 4.0);
-                    scene.fog.color.copy(scene.background);
-                    if (meteor.timer > 7) meteor.phase = 'pre2';
-                } else if (meteor.phase === 'pre2') {
+                if (meteor.phase === 'pre1') { scene.background.lerpColors(originalFogColor, new THREE.Color(0xff00ff), meteor.timer / 4.0); scene.fog.color.copy(scene.background); if (meteor.timer > 7) meteor.phase = 'pre2'; } 
+                else if (meteor.phase === 'pre2') {
                     cameraShake = (meteor.timer - 7) * 2;
                     if (meteor.timer >= 10) {
                         meteor.phase = 'landing';
-                        if(!meteor.mesh) {
-                            meteor.mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(4, 1), new THREE.MeshStandardMaterial({color: 0x222222, emissive: 0x00ff00, emissiveIntensity: 0.2}));
-                            scene.add(meteor.mesh);
-                        }
-                        meteor.mesh.position.set(100, 100, -100); meteor.mesh.visible = true;
-                        
-                        cows.forEach(c => cowGroup.remove(c)); cows = []; totalSpawnedCows = 0; updateUI();
-                        SFX.meteorHit();
+                        if(!meteor.mesh) { meteor.mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(4, 1), new THREE.MeshStandardMaterial({color: 0x222222, emissive: 0x00ff00, emissiveIntensity: 0.2})); scene.add(meteor.mesh); }
+                        meteor.mesh.position.set(100, 100, -100); meteor.mesh.visible = true; cows.forEach(c => cowGroup.remove(c)); cows = []; totalSpawnedCows = 0; updateUI(); SFX.meteorHit();
                     }
-                } else if (meteor.phase === 'landing') {
-                    cameraShake = 5;
-                    meteor.mesh.position.lerp(new THREE.Vector3(0, GROUND_LEVEL+2, 0), 0.1);
-                    if (meteor.mesh.position.y < GROUND_LEVEL + 3) {
-                        meteor.phase = 'landed'; 
-                        document.getElementById('screen-flash').style.opacity = '0.8';
-                        setTimeout(() => { document.getElementById('screen-flash').style.opacity = '0'; }, 300);
-                    }
-                } else if (meteor.phase === 'landed') {
-                    cameraShake *= 0.9;
-                    meteor.mesh.rotation.x += delta; meteor.mesh.rotation.y += delta;
-                } else if (meteor.phase === 'sinking') {
+                } 
+                else if (meteor.phase === 'landing') { cameraShake = 5; meteor.mesh.position.lerp(new THREE.Vector3(0, GROUND_LEVEL+2, 0), 0.1); if (meteor.mesh.position.y < GROUND_LEVEL + 3) { meteor.phase = 'landed'; document.getElementById('screen-flash').style.opacity = '0.8'; setTimeout(() => { document.getElementById('screen-flash').style.opacity = '0'; }, 300); } } 
+                else if (meteor.phase === 'landed') { cameraShake *= 0.9; meteor.mesh.rotation.x += delta; meteor.mesh.rotation.y += delta; } 
+                else if (meteor.phase === 'sinking') {
                     meteor.mesh.position.y -= delta * 2;
                     if(meteor.mesh.position.y < -5) {
                         meteor.mesh.visible = false; meteor.phase = 'none'; meteor.active = false;
                         scene.background.copy(originalFogColor); scene.fog.color.copy(originalFogColor); windMat.color.setHex(0xffffff);
                         let alien = createVoxelCow(1, 0, 0, true, 'alien'); alien.position.y = 15;
-                        
-                        camera.position.set(0, 45, 60);
-                        controls.target.set(0, 0, 0);
-                        controls.update();
-                        baseCameraPos.copy(camera.position);
+                        camera.position.set(0, 45, 60); controls.target.set(0, 0, 0); controls.update(); baseCameraPos.copy(camera.position);
                     }
                 }
             }
 
-            // ====== LÓGICA DO EVENTO UFO ======
             if (ufoEvent.active) {
                 ufoEvent.timer += delta;
-                if (ufoEvent.phase === 'arrive') {
-                    let orbitX = Math.cos(time) * 15; let orbitZ = Math.sin(time) * 25;
-                    ufoEvent.ufoGroup.position.lerp(new THREE.Vector3(orbitX, 20, orbitZ), 0.05);
-                    if(ufoEvent.timer > 5) ufoEvent.phase = 'beam';
-                } else if (ufoEvent.phase === 'beam') {
+                if (ufoEvent.phase === 'arrive') { let orbitX = Math.cos(time) * 15; let orbitZ = Math.sin(time) * 25; ufoEvent.ufoGroup.position.lerp(new THREE.Vector3(orbitX, 20, orbitZ), 0.05); if(ufoEvent.timer > 5) ufoEvent.phase = 'beam'; } 
+                else if (ufoEvent.phase === 'beam') {
                     ufoEvent.ufoGroup.position.lerp(new THREE.Vector3(ufoEvent.targetCow.position.x, 20, ufoEvent.targetCow.position.z), 0.05);
                     if(ufoEvent.ufoGroup.position.distanceTo(new THREE.Vector3(ufoEvent.targetCow.position.x, 20, ufoEvent.targetCow.position.z)) < 2) {
-                        ufoEvent.beam.visible = true;
-                        ufoEvent.targetCow.position.y += delta * 5;
-                        ufoEvent.targetCow.rotation.y += delta * 10;
-                        ufoEvent.targetCow.userData.legs.forEach(l => l.rotation.x = Math.sin(time*30));
+                        ufoEvent.beam.visible = true; ufoEvent.targetCow.position.y += delta * 5; ufoEvent.targetCow.rotation.y += delta * 10; ufoEvent.targetCow.userData.legs.forEach(l => l.rotation.x = Math.sin(time*30));
                         if(ufoEvent.timer % 1 < 0.1) SFX.moo();
-                        if(ufoEvent.targetCow.position.y > 18) {
-                            cowGroup.remove(ufoEvent.targetCow); cows = cows.filter(c => c !== ufoEvent.targetCow);
-                            ufoEvent.beam.visible = false; ufoEvent.phase = 'leave'; ufoEvent.timer = 0; updateUI();
-                        }
+                        if(ufoEvent.targetCow.position.y > 18) { cowGroup.remove(ufoEvent.targetCow); cows = cows.filter(c => c !== ufoEvent.targetCow); ufoEvent.beam.visible = false; ufoEvent.phase = 'leave'; ufoEvent.timer = 0; updateUI(); }
                     }
-                } else if (ufoEvent.phase === 'leave') {
-                    let orbitX = Math.cos(time*2) * 15; let orbitZ = Math.sin(time*2) * 25;
-                    ufoEvent.ufoGroup.position.lerp(new THREE.Vector3(orbitX, 25, orbitZ), 0.1);
-                    if(ufoEvent.timer > 3) { ufoEvent.phase = 'supersonic'; }
-                } else if (ufoEvent.phase === 'supersonic') {
-                    ufoEvent.ufoGroup.position.y += delta * 100; ufoEvent.ufoGroup.position.z -= delta * 100; ufoEvent.ufoGroup.scale.multiplyScalar(0.9);
-                    if(ufoEvent.ufoGroup.position.y > 200) ufoEvent.active = false;
-                }
+                } 
+                else if (ufoEvent.phase === 'leave') { let orbitX = Math.cos(time*2) * 15; let orbitZ = Math.sin(time*2) * 25; ufoEvent.ufoGroup.position.lerp(new THREE.Vector3(orbitX, 25, orbitZ), 0.1); if(ufoEvent.timer > 3) { ufoEvent.phase = 'supersonic'; } } 
+                else if (ufoEvent.phase === 'supersonic') { ufoEvent.ufoGroup.position.y += delta * 100; ufoEvent.ufoGroup.position.z -= delta * 100; ufoEvent.ufoGroup.scale.multiplyScalar(0.9); if(ufoEvent.ufoGroup.position.y > 200) ufoEvent.active = false; }
             }
 
-            // ====== LÓGICA DO EVENTO INUNDAÇÃO ======
             if (flood.active) {
                 flood.timer += delta;
-                if (flood.phase === 'clouds') {
-                    if (flood.timer < 3) {
-                        flood.clouds.forEach(c => { c.material.color.lerp(new THREE.Color(0x555555), delta); c.material.opacity = 0.7; });
-                    } else {
-                        flood.phase = 'rain'; flood.rainParts.visible = true; rainSound.setVolume(0.5);
-                    }
-                } else if (flood.phase === 'rain') {
-                    if (flood.timer > 28) { flood.phase = 'flood'; water.targetLevel = 5; }
-                    if (Math.random() < 0.01 && flood.timer % 5 < 0.1) { SFX.thunder(); document.getElementById('screen-flash').style.opacity = '0.5'; setTimeout(()=>document.getElementById('screen-flash').style.opacity='0', 100); }
-                } else if (flood.phase === 'flood') {
-                    if (flood.timer > 50) {
-                        flood.phase = 'surf';
-                        flood.cow = createVoxelCow(1, 40, 0, true, 'flood');
-                        flood.cow.position.y = water.level;
-                    }
-                } else if (flood.phase === 'surf') {
-                    flood.cow.position.lerp(new THREE.Vector3(0, water.level, 0), 0.05);
-                    if(flood.timer > 55) { flood.phase = 'drain'; water.targetLevel = GROUND_LEVEL - 5; }
-                } else if (flood.phase === 'drain') {
-                    flood.cow.position.y = water.level;
-                    if(flood.timer > 60) {
-                        flood.active = false; flood.rainParts.visible = false; rainSound.setVolume(0);
-                        flood.clouds.forEach(c => scene.remove(c)); flood.clouds = [];
-                        flood.cow.position.y = GROUND_LEVEL;
-                    }
-                } else if (flood.phase === 'protect') {
+                if (flood.phase === 'clouds') { if (flood.timer < 3) { flood.clouds.forEach(c => { c.material.color.lerp(new THREE.Color(0x555555), delta); c.material.opacity = 0.7; }); } else { flood.phase = 'rain'; flood.rainParts.visible = true; rainSound.setVolume(0.5); } } 
+                else if (flood.phase === 'rain') { if (flood.timer > 28) { flood.phase = 'flood'; water.targetLevel = 5; } if (Math.random() < 0.01 && flood.timer % 5 < 0.1) { SFX.thunder(); document.getElementById('screen-flash').style.opacity = '0.5'; setTimeout(()=>document.getElementById('screen-flash').style.opacity='0', 100); } } 
+                else if (flood.phase === 'flood') { if (flood.timer > 50) { flood.phase = 'surf'; flood.cow = createVoxelCow(1, 40, 0, true, 'flood'); flood.cow.position.y = water.level; } } 
+                else if (flood.phase === 'surf') { flood.cow.position.lerp(new THREE.Vector3(0, water.level, 0), 0.05); if(flood.timer > 55) { flood.phase = 'drain'; water.targetLevel = GROUND_LEVEL - 5; } } 
+                else if (flood.phase === 'drain') { flood.cow.position.y = water.level; if(flood.timer > 60) { flood.active = false; flood.rainParts.visible = false; rainSound.setVolume(0); flood.clouds.forEach(c => scene.remove(c)); flood.clouds = []; flood.cow.position.y = GROUND_LEVEL; } } 
+                else if (flood.phase === 'protect') {
                     if(flood.timer < 3) { flood.clouds.forEach(c => { c.material.color.lerp(new THREE.Color(0x555555), delta); }); }
-                    else if (flood.timer < 60) {
-                        flood.rainParts.visible = true; rainSound.setVolume(0.3); water.targetLevel = GROUND_LEVEL + 1.5;
-                        flood.cow.rotation.z = Math.PI; 
-                        flood.cow.position.y = GROUND_LEVEL + 3;
-                    } else {
-                        flood.active = false; flood.rainParts.visible = false; rainSound.setVolume(0); water.targetLevel = GROUND_LEVEL - 5;
-                        flood.clouds.forEach(c => scene.remove(c)); flood.clouds = [];
-                        flood.cow.rotation.z = 0; flood.cow.position.y = GROUND_LEVEL;
-                    }
+                    else if (flood.timer < 60) { flood.rainParts.visible = true; rainSound.setVolume(0.3); water.targetLevel = GROUND_LEVEL + 1.5; flood.cow.rotation.z = Math.PI; flood.cow.position.y = GROUND_LEVEL + 3; } 
+                    else { flood.active = false; flood.rainParts.visible = false; rainSound.setVolume(0); water.targetLevel = GROUND_LEVEL - 5; flood.clouds.forEach(c => scene.remove(c)); flood.clouds = []; flood.cow.rotation.z = 0; flood.cow.position.y = GROUND_LEVEL; }
                 }
 
-                water.level += (water.targetLevel - water.level) * delta * 0.5;
-                waterMesh.position.y = water.level;
+                water.level += (water.targetLevel - water.level) * delta * 0.5; waterMesh.position.y = water.level;
                 if(flood.rainParts && flood.rainParts.visible) {
                     let rArr = flood.rainParts.geometry.attributes.position.array;
-                    for(let i=0; i<2000; i++) {
-                        rArr[i*3+1] -= delta * 30; if(rArr[i*3+1] < water.level) rArr[i*3+1] = 40;
-                    }
+                    for(let i=0; i<2000; i++) { rArr[i*3+1] -= delta * 30; if(rArr[i*3+1] < water.level) rArr[i*3+1] = 40; }
                     flood.rainParts.geometry.attributes.position.needsUpdate = true;
                 }
             }
 
-            if (cameraShake > 0) {
-                camera.position.x = baseCameraPos.x + (Math.random()-0.5)*cameraShake;
-                camera.position.y = baseCameraPos.y + (Math.random()-0.5)*cameraShake;
-                camera.position.z = baseCameraPos.z + (Math.random()-0.5)*cameraShake;
-            } else {
-                baseCameraPos.copy(camera.position);
-            }
+            if (cameraShake > 0) { camera.position.x = baseCameraPos.x + (Math.random()-0.5)*cameraShake; camera.position.y = baseCameraPos.y + (Math.random()-0.5)*cameraShake; camera.position.z = baseCameraPos.z + (Math.random()-0.5)*cameraShake; } else { baseCameraPos.copy(camera.position); }
 
             if(autoFuseActive && !draggedCow) {
                 let mergedThisFrame = false;
@@ -1218,16 +1006,11 @@
 
             cows.forEach(cow => {
                 if(!cow.userData.isDragging && !cow.userData.isUFOVictim) {
-                    cow.userData.timeAlive += delta;
-                    let cowBaseY = Math.max(GROUND_LEVEL, water.level);
+                    cow.userData.timeAlive += delta; let cowBaseY = Math.max(GROUND_LEVEL, water.level);
                     if(cow.position.y > cowBaseY && cow.userData.type !== 'flood') cow.position.y = Math.max(cowBaseY, cow.position.y - delta * 20); 
 
-                    if(water.level > GROUND_LEVEL + 0.5 && cow.userData.type !== 'flood') {
-                        cow.position.y = water.level + Math.sin(time*2 + cow.userData.id)*0.5;
-                        cow.rotation.z = Math.sin(time*3 + cow.userData.id)*0.1;
-                    } else {
-                        if(cow.userData.type !== 'flood' || flood.phase !== 'protect') cow.rotation.z = 0;
-                    }
+                    if(water.level > GROUND_LEVEL + 0.5 && cow.userData.type !== 'flood') { cow.position.y = water.level + Math.sin(time*2 + cow.userData.id)*0.5; cow.rotation.z = Math.sin(time*3 + cow.userData.id)*0.1; } 
+                    else { if(cow.userData.type !== 'flood' || flood.phase !== 'protect') cow.rotation.z = 0; }
 
                     if (cow.userData.isHungry && !cow.userData.isEating && !cow.userData.isFed && cow.userData.timeAlive >= cow.userData.eatTimeTarget) {
                         if (!autoFuseActive || !cow.userData.targetCow) {
@@ -1236,10 +1019,7 @@
                             let fwdX = Math.sin(cow.rotation.y); let fwdZ = Math.cos(cow.rotation.y);
                             for (let i=0; i<GRASS_COUNT; i++) {
                                 let gd = grassData[i];
-                                if (!gd.eaten) {
-                                    let dx = gd.x - cow.position.x; let dz = gd.z - cow.position.z; let dist = Math.sqrt(dx*dx + dz*dz);
-                                    if (dist < 4.0 && dist > 0.5 && ((dx/dist)*fwdX + (dz/dist)*fwdZ) > 0.6) { cow.userData.grassToEat.push(i); if (cow.userData.grassToEat.length >= eatCount) break; }
-                                }
+                                if (!gd.eaten) { let dx = gd.x - cow.position.x; let dz = gd.z - cow.position.z; let dist = Math.sqrt(dx*dx + dz*dz); if (dist < 4.0 && dist > 0.5 && ((dx/dist)*fwdX + (dz/dist)*fwdZ) > 0.6) { cow.userData.grassToEat.push(i); if (cow.userData.grassToEat.length >= eatCount) break; } }
                             }
                         }
                     }
@@ -1249,10 +1029,7 @@
                     if (cow.userData.isEating) {
                         cow.userData.eatTimer -= delta; cow.userData.headGroup.rotation.x = Math.PI / 2.5 + Math.sin(time * 15) * 0.1;
                         let totalGrass = cow.userData.grassToEat.length;
-                        if (totalGrass > 0) {
-                            let percentDone = 1.0 - (cow.userData.eatTimer / 5.0); let grassEatenCount = Math.floor(percentDone * totalGrass);
-                            for (let i = 0; i < grassEatenCount; i++) { grassData[cow.userData.grassToEat[i]].eaten = true; }
-                        }
+                        if (totalGrass > 0) { let percentDone = 1.0 - (cow.userData.eatTimer / 5.0); let grassEatenCount = Math.floor(percentDone * totalGrass); for (let i = 0; i < grassEatenCount; i++) { grassData[cow.userData.grassToEat[i]].eaten = true; } }
                         if (cow.userData.eatTimer <= 0) { cow.userData.isEating = false; cow.userData.isHungry = false; cow.userData.isFed = true; cow.userData.poopTimer = 30.0; cow.userData.headGroup.rotation.x = 0; addAura(cow); }
                     } else if (isFusing) {
                         let target = cow.userData.targetCow; let dir = new THREE.Vector3().subVectors(target.position, cow.position).normalize(); let speed = 10;
@@ -1275,8 +1052,7 @@
                     }
 
                     if (cow.userData.isFed) {
-                        cow.userData.poopTimer -= delta;
-                        let pTimeTarget = 30.0; 
+                        cow.userData.poopTimer -= delta; let pTimeTarget = 30.0; 
                         if (cow.userData.poopTimer <= 0) { cow.userData.poopTimer = pTimeTarget; spawnPoop(cow); }
                         if(cow.userData.sparkles) {
                             let pArray = cow.userData.sparkles.geometry.attributes.position.array;
@@ -1286,8 +1062,7 @@
                     }
 
                     if(cow.userData.velocity > 0 && cow.position.y <= cowBaseY + 0.1 && !cow.userData.isEating) {
-                        let legSwing = Math.sin(time * 15 + cow.userData.id) * 0.4;
-                        cow.userData.legs.forEach((l, i) => l.rotation.x = (i%2===0)?legSwing:-legSwing); 
+                        let legSwing = Math.sin(time * 15 + cow.userData.id) * 0.4; cow.userData.legs.forEach((l, i) => l.rotation.x = (i%2===0)?legSwing:-legSwing); 
                         cow.userData.animGroup.position.y = 2.5 + Math.abs(Math.sin(time * 15)) * 0.2; 
                         cow.userData.stepTimer -= delta;
                         if (cow.userData.stepTimer <= 0) { if (window.sfxEnabled && cow.userData.stepSound && !cow.userData.stepSound.isPlaying) cow.userData.stepSound.play(); cow.userData.stepTimer = 0.25; }
@@ -1332,7 +1107,7 @@
         }
 
         // ==========================================
-        // INFRAESTRUTURA & OPÇÕES
+        // INFRAESTRUTURA
         // ==========================================
         function createFloatingText(text, x, z) {
             let elem = document.createElement('div'); elem.className = 'floating-text'; elem.innerText = text;
