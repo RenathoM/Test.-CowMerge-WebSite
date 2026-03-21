@@ -758,7 +758,17 @@
             });
         }
         window.submitScore = () => {
-            let nick = document.getElementById('lb-nickname').value.toUpperCase().trim() || "ANON"; if (nick.length > 5) nick = nick.substring(0, 5);
+            // Removemos o "ANON" e pegamos apenas o que o usuário digitou
+            let nick = document.getElementById('lb-nickname').value.toUpperCase().trim(); 
+            
+            // Impede o envio se o campo estiver vazio
+            if (!nick) {
+                alert("Por favor, digite um apelido para enviar sua pontuação!");
+                return;
+            }
+
+            if (nick.length > 5) nick = nick.substring(0, 5);
+            
             if (currentLBTab === 'money') {
                 if (money <= 0) return;
                 let mIndex = lbData.money.findIndex(e => e.name === nick);
