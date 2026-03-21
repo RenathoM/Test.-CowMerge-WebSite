@@ -1350,25 +1350,52 @@
             }
         }, 3000);
 
-        function saveGame() {
-            let data = cows.map(c => `${c.userData.level}|${c.position.x.toFixed(1)}|${c.position.z.toFixed(1)}|${c.userData.isFed ? 1 : 0}|${c.userData.type}`).join(";");
-            localStorage.setItem("MergeCow3D_Save", JSON.stringify({ money, totalCompras, totalSpawnedCows, cows: data }));
+        // ==========================================
+        // SISTEMA DE DADOS GLOBAIS (NUVEM)
+        // ==========================================
+        // Substitua esta URL pela URL do seu banco de dados real (ex: API do Firebase Realtime Database)
+        const GLOBAL_DB_URL = "https://xjgdtwevqrrnorgzelrz.supabase.co"; 
+
+        // Variáveis globais do Leaderboard
+        let globalLeaderboardVacas = [];
+        let globalLeaderboardFortuna = [];
+
+        // Função para SALVAR globalmente
+        async function saveGlobalData(playerName, playerCows, playerMoney) {
+            try {
+                await fetch(`${GLOBAL_DB_URL}/updatePlayer`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: playerName,
+                        cows: playerCows,
+                        money: playerMoney
+                    })
+                });
+                console.log("Dados salvos globalmente com sucesso!");
+            } catch (error) {
+                console.error("Erro ao salvar na nuvem:", error);
+                // Fallback: salva no localStorage caso a internet caia
+                localStorage.setItem('MergeCow_BackupLocal', JSON.stringify({name: playerName, cows: playerCows, money: playerMoney}));
+            }
         }
 
-        function loadGame() {
-            let saved = JSON.parse(localStorage.getItem("MergeCow3D_Save"));
-            if (saved) {
-                money = saved.money || SALDO_INICIAL; totalCompras = saved.totalCompras || 0; totalSpawnedCows = saved.totalSpawnedCows || 0;
-                if (saved.cows) {
-                    saved.cows.split(";").forEach(c => {
-                        let [l, x, z, isFedStatus, t] = c.split("|");
-                        if(l) {
-                            let px = parseFloat(x); let pz = parseFloat(z); let restoredFed = (parseInt(isFedStatus) === 1); let type = t || 'normal';
-                            if (isColliding(px, pz)) { px = 0; pz = 0; } 
-                            createVoxelCow(parseInt(l), px, pz, restoredFed, type);
-                        }
-                    });
-                }
+        // Função para CARREGAR globalmente
+        async function loadGlobalLeaderboard() {
+            try {
+                let response = await fetch(`${GLOBAL_DB_URL}/leaderboard`);
+                let data = await response.json();
+                
+                // Atualiza as variáveis do jogo com os dados ao vivo do servidor
+                globalLeaderboardVacas = data.vacas;
+                globalLeaderboardFortuna = data.fortuna;
+                
+                // Função que você já tem para desenhar o placar na tela
+                atualizarUILeaderboard(); 
+            } catch (error) {
+                console.error("Erro ao puxar dados ao vivo da nuvem:", error);
             }
             updateUI();
         }
