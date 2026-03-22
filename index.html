@@ -173,7 +173,7 @@
             <div class="glass-panel stats-box">
                 <h1>Painel de Controle</h1>
                 <span class="money">$<span id="money-display">200</span></span>
-                <span class="income">+ $<span id="income-display">0</span> / 3s</span>
+                <span class="income">+ $<span id="income-display">0</span> / 1s</span>
                 <span class="total-cows">Vacas Spawnadas: <span id="cows-display">0</span></span>
                 <button class="btn-collection" onclick="openCollection()">📖 Coleção</button>
             </div>
@@ -790,7 +790,13 @@
         // ==========================================
         // UI & SISTEMA DE COMPRA & COLEÇÃO
         // ==========================================
-        function abbreviate(v) { if (v < 1000) return Math.floor(v).toString(); const u = ["", "K", "M", "B", "T"]; let idx = 0; while (v >= 1000 && idx < u.length - 1) { v /= 1000; idx++; } return v.toFixed(1).replace(/\.0$/, '') + u[idx]; }
+        function abbreviate(v) {
+            if (v < 1000) return Math.floor(v).toString();
+            const u = ["", "k", "m", "b", "t", "qa", "qi", "sx", "sp", "oc", "no", "dc"];
+            let idx = 0;
+            while (v >= 1000 && idx < u.length - 1) { v /= 1000; idx++; }
+            return v.toFixed(1).replace(/\.0$/, '') + u[idx];
+        }
         function getCowPrice() { return Math.floor(PRECO_INICIAL * Math.pow(MULTIPLICADOR_CUSTO, totalCompras)); }
         // Substitua a função getCowIncome para retornar o valor correto de cada vaca
         function getCowIncome(cow) {
@@ -1276,13 +1282,23 @@
 
             [...chickenGroup.children, ...petChickenGroup.children].forEach(c => {
                 if (c.userData.isPet) {
+                    // Alteração: cada galinha pet coleta uma fezes a cada 10s, sempre que possível
                     c.userData.actionTimer -= delta;
                     if (c.userData.actionTimer <= 0) {
-                        c.userData.actionTimer = 30.0;
-                        if (Math.random() < 0.5 && poopGroup.children.length > 0) {
-                            let closest = null; let minDist = Infinity;
-                            poopGroup.children.forEach(p => { let d = c.position.distanceTo(p.position); if(d < minDist) { minDist = d; closest = p; } });
-                            c.userData.targetPoop = closest;
+                        c.userData.actionTimer = 10.0;
+                        // Procura a fezes mais próxima ainda não atribuída a outra galinha
+                        let availablePoops = poopGroup.children.filter(p => !p.userData.assigned);
+                        if (availablePoops.length > 0) {
+                            // Marca a fezes como atribuída para evitar múltiplas galinhas no mesmo alvo
+                            let closest = null, minDist = Infinity;
+                            availablePoops.forEach(p => {
+                                let d = c.position.distanceTo(p.position);
+                                if (d < minDist) { minDist = d; closest = p; }
+                            });
+                            if (closest) {
+                                closest.userData.assigned = true;
+                                c.userData.targetPoop = closest;
+                            }
                         }
                     }
                     if (c.userData.targetPoop && c.userData.targetPoop.parent) {
@@ -1301,7 +1317,6 @@
                             c.rotation.y += diff * delta * 10;
                             c.position.x += Math.sin(c.rotation.y) * delta * 8;
                             c.position.z += Math.cos(c.rotation.y) * delta * 8;
-                            c.userData.velocity = 8;
                         }
                     } else {
                         let diff = c.userData.targetYRot - c.rotation.y; c.rotation.y += diff * delta * 4;
@@ -1548,7 +1563,7 @@
                 money += income; updateUI(); 
                 if(cows.length > 0) { let rc = cows[Math.floor(Math.random() * cows.length)]; createFloatingText("+$" + abbreviate(income), rc.position.x, rc.position.z); }
             }
-        }, 3000);
+        }, 1000);
 
         function saveGame() {
             let data = cows.map(c => `${c.userData.level}|${c.position.x.toFixed(1)}|${c.position.z.toFixed(1)}|${c.userData.isFed ? 1 : 0}|${c.userData.type}`).join(";");
