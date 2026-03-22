@@ -1208,9 +1208,9 @@
         setInterval(() => {
             if (meteor.active || flood.active || ufoEvent.active || chickenEvent.active) return;
             if (Math.random() < 0.05 && !unlockedCows['alien']) { startMeteorEvent(); } 
-            else if (Math.random() < 0.1 && cows.length > 0) { startUFOEvent(); } 
-            else if (Math.random() < 0.3) { startFloodEvent(); } 
-            else if (Math.random() < 0.5 && cows.length > 0) { SFX.cough(); createFloatingText("*Cof*", cows[0].position.x, cows[0].position.z); }
+            else if (Math.random() < 0.3 && cows.length > 0) { startUFOEvent(); } 
+            else if (Math.random() < 0.2) { startFloodEvent(); } 
+            else if (Math.random() < 0.1 && cows.length > 0) { SFX.cough(); createFloatingText("*Cof*", cows[0].position.x, cows[0].position.z); }
         }, 60000);
 
         function startMeteorEvent() { if(unlockedCows['alien']) return; meteor.active = true; meteor.timer = 0; meteor.phase = 'pre1'; meteor.clicks = 0; windMat.color.setHex(0x00ff00); }
