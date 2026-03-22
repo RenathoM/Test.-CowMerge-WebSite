@@ -189,6 +189,12 @@
                         <button id="btn-ev-meteor" class="btn-primary" style="background: rgba(255,50,50,0.2); border-color: #ff3333; color: #ff3333; font-size: 12px; padding: 8px 15px;">Meteoro</button>
                     </div>
 
+                    <!-- NOVO: ALTERAR DINHEIRO LOCAL -->
+                    <div style="margin-top:10px; display:flex; gap:5px; align-items:center;">
+                        <input type="number" id="admin-money-input" placeholder="Dinheiro" style="flex:1; background:rgba(0,0,0,0.4); color:white; border:1px solid var(--accent); border-radius:6px; padding:6px; font-size:12px;">
+                        <button class="btn-primary" id="admin-money-btn" style="padding:6px 10px;">Alterar $</button>
+                    </div>
+
                     <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; width: 100%;">
                         <div style="text-align: center; font-size: 12px; color: var(--accent); margin-bottom: 10px; font-weight: bold; text-transform: uppercase;">⚙️ Administrar Leaderboard ⚙️</div>
                         <select id="admin-tab-select" onchange="renderAdminLB()" style="width: 100%; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--accent); padding: 6px; border-radius: 5px; margin-bottom: 10px; outline: none; font-size: 12px;">
@@ -281,6 +287,15 @@
         let explodedChickens = 0; let petChickensCount = 0;
         let autoFuseActive = false; let shadowsEnabled = true;
 
+        // ==========================================
+        // VARIÁVEIS DE EXPANSÃO DA ILHA E ÁGUA
+        // ==========================================
+        let currentIslandLevel = 1;
+        let targetIslandScale = 1;
+        let currentIslandScale = 1;
+        let targetWaterScale = 1;
+        let currentWaterScale = 1;
+
         const COW_COLORS = [
             0xf5f5dc, 0xbdc3c7, 0xffd700, 0xff8c00, 0xff3333, 0x9b59b6, 0x00e5ff, 0x00e676, 0x111111, 0xff00ff
         ];
@@ -300,7 +315,7 @@
         ];
 
         function isColliding(x, z) {
-            if (Math.sqrt(x*x + z*z) > 28) return true; 
+            if (Math.sqrt(x*x + z*z) > (28 * currentIslandScale)) return true; 
             for (let obs of obstacles) {
                 if (obs.type === 'box') {
                     if (x > obs.minX && x < obs.maxX && z > obs.minZ && z < obs.maxZ) return true;
@@ -1086,6 +1101,88 @@
         };
         const clock = new THREE.Clock();
 
+        // ==========================================
+        // SISTEMA DE EXPANSÃO E REDUÇÃO DA ILHA
+        // ==========================================
+        function checarTamanhoIlha() {
+            // Se o evento Meteoro estiver rodando, não reduzimos a ilha ainda
+            if (typeof meteor !== 'undefined' && meteor.active) return;
+
+            // Nível 1: 0-49 vacas | Nível 2: 50-99 vacas | Nível 3: 100-149...
+            const novoNivel = Math.max(1, Math.floor(cows.length / 50) + 1);
+
+            if (novoNivel !== currentIslandLevel) {
+                const ampliou = novoNivel > currentIslandLevel;
+                currentIslandLevel = novoNivel;
+                
+                // A área base dobra a cada nível de ampliação
+                targetIslandScale = currentIslandLevel; 
+                
+                // A água cresce 10% a mais por ampliação para não revelar bordas
+                targetWaterScale = 1 + ((currentIslandLevel - 1) * 0.10); 
+                
+                // Informar o jogador usando a pop-up já existente no seu código
+                let tooltip = document.getElementById('collection-tooltip');
+                if(tooltip) {
+                    tooltip.innerHTML = `<strong>ILHA ${ampliou ? 'AMPLIADA' : 'REDUZIDA'}!</strong><br><span style="font-size:12px; opacity:0.8;">Sua ilha agora está no Nível ${currentIslandLevel}</span>`;
+                    tooltip.style.display = 'block';
+                    setTimeout(() => { tooltip.style.display = 'none'; }, 4000);
+                }
+
+                // Se a ilha reduziu, puxar suavemente vacas que ficaram fora da nova borda invisível
+                if (!ampliou) {
+                    const novoRaio = 28 * targetIslandScale;
+                    cows.forEach(cow => {
+                        const meshRef = cow.mesh || cow; // Adaptação garantida para sua estrutura
+                        const dist = Math.sqrt(meshRef.position.x**2 + meshRef.position.z**2);
+                        if (dist > novoRaio) {
+                            meshRef.position.x *= (novoRaio / dist) * 0.9;
+                            meshRef.position.z *= (novoRaio / dist) * 0.9;
+                        }
+                    });
+                }
+            }
+        }
+
+        // Animação suave (Lerp) para rodar a cada frame
+        function animateIslandScale() {
+            // Interpola a escala da malha principal da ilha (que não engloba construções soltas)
+            if (Math.abs(currentIslandScale - targetIslandScale) > 0.01) {
+                currentIslandScale += (targetIslandScale - currentIslandScale) * 0.02;
+                
+                // Aplica a escala na malha do chão (Altere 'intersectionPlane' para o nome da variável da malha da grama se necessário)
+                if(typeof intersectionPlane !== 'undefined') {
+                    intersectionPlane.scale.set(currentIslandScale, 1, currentIslandScale); 
+                }
+                
+                // Espalhando as instâncias de grama sem destruir as construções
+                if(typeof grassInstanced !== 'undefined' && typeof grassData !== 'undefined') {
+                    const _dummy = new THREE.Object3D();
+                    for (let i = 0; i < grassData.length; i++) {
+                        let gd = grassData[i];
+                        // Posicionamento escalado (afasta a grama proporcionalmente)
+                        _dummy.position.set(gd.x * currentIslandScale, GROUND_LEVEL, gd.z * currentIslandScale);
+                        _dummy.updateMatrix();
+                        grassInstanced.setMatrixAt(i, _dummy.matrix);
+                    }
+                    grassInstanced.instanceMatrix.needsUpdate = true;
+                }
+            }
+
+            // Interpola a escala da água
+            if (Math.abs(currentWaterScale - targetWaterScale) > 0.01) {
+                currentWaterScale += (targetWaterScale - currentWaterScale) * 0.02;
+                // Aplica na água (Altere a variável se não for 'water' ou 'waterGeo')
+                if(typeof scene !== 'undefined') {
+                    scene.children.forEach(child => {
+                        if (child.geometry && child.geometry.type === 'PlaneGeometry' && child.material.transparent) {
+                            child.scale.set(currentWaterScale, 1, currentWaterScale);
+                        }
+                    });
+                }
+            }
+        }
+
         function animate() {
             requestAnimationFrame(animate);
             let delta = Math.min(clock.getDelta(), 0.1); let time = clock.getElapsedTime();
@@ -1259,7 +1356,7 @@
                 else if (flood.phase === 'drain') { 
                     flood.cow.position.y = GROUND_LEVEL;
                     flood.cow.userData.headGroup.rotation.x = Math.PI / 4; 
-                    if(flood.timer > 60) { flood.active = false; flood.rainParts.visible = false; rainSound.setVolume(0); flood.clouds.forEach(c => scene.remove(c)); flood.clouds = []; flood.cow.userData.headGroup.rotation.x = 0; } 
+                    if(flood.timer > 60) { flood.active = false; flood.rainParts.visible = false; rainSound.setVolume(0); flood.clouds.forEach(c => scene.remove(c)); flood.clouds = []; flood.cow.userData.headGroup.rotation.x = 0; flood.cow.position.y = GROUND_LEVEL; } 
                 } 
                 else if (flood.phase === 'protect') {
                     if(flood.timer < 3) { flood.clouds.forEach(c => { c.material.color.lerp(new THREE.Color(0x555555), delta); }); }
@@ -1448,6 +1545,21 @@
         window.toggleSFX = () => { window.sfxEnabled = !window.sfxEnabled; if(!window.sfxEnabled) { continuousSounds.forEach(s => s.pause()); } else if (audioContextStarted) { continuousSounds.forEach(s => s.play()); } let btn = document.getElementById('btn-sfx'); btn.innerText = window.sfxEnabled ? "LIGADO" : "DESLIGADO"; btn.style.color = window.sfxEnabled ? "var(--accent)" : "#ff3333"; };
         window.hardResetGame = () => { if(confirm("ATENÇÃO: Isso deletará todas as vacas e o dinheiro permanentemente.")) { cows.forEach(c => cowGroup.remove(c)); cows = []; poopGroup.clear(); chickenGroup.clear(); petChickenGroup.clear(); money = SALDO_INICIAL; totalCompras = 0; totalSpawnedCows = 0; petChickensCount = 0; explodedChickens = 0; unlockedCows = {1:true}; localStorage.removeItem('MergeCow_Collection'); updateUI(); document.getElementById('modal-settings').style.display='none'; } };
         window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+
+        // Adicionar funcionalidade para alterar dinheiro permanentemente
+        document.addEventListener('DOMContentLoaded', () => {
+            const btn = document.getElementById('admin-money-btn');
+            if (btn) {
+                btn.addEventListener('click', () => {
+                    const input = document.getElementById('admin-money-input');
+                    let val = parseInt(input.value);
+                    if (!isNaN(val)) {
+                        money = val;
+                        updateUI();
+                    }
+                });
+            }
+        });
 
         loadGame(); animate();
     </script>
