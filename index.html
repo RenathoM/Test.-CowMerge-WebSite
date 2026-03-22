@@ -147,6 +147,38 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 300px;
         }
 
+        /* ==========================================
+           SISTEMA DE CONQUISTAS
+           ========================================== */
+        #achievement-notification {
+            position: fixed; bottom: 120px; right: 20px;
+            background: rgba(20, 30, 40, 0.97); backdrop-filter: blur(10px);
+            border: 2px solid #ffd700; color: white;
+            padding: 15px 20px; border-radius: 16px; font-size: 14px; text-align: left;
+            z-index: 9000; pointer-events: none; display: none;
+            box-shadow: 0 10px 30px rgba(255,215,0,0.2); max-width: 280px;
+            animation: slideInAchievement 0.4s cubic-bezier(0.4,0,0.2,1);
+        }
+        @keyframes slideInAchievement { from { transform: translateX(320px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .ach-notif-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+        .ach-notif-icon { font-size: 28px; }
+        .ach-notif-title { font-weight: 800; color: #ffd700; font-size: 13px; text-transform: uppercase; }
+        .ach-notif-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+        #modal-achievements { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); display: none; justify-content: center; align-items: center; z-index: 100; pointer-events: auto; }
+        .achievements-content { background: rgba(20, 30, 45, 0.95); border: 1px solid #ffd700; border-radius: 24px; padding: 30px; width: 90%; max-width: 750px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); text-align: center; color: white; max-height: 85vh; overflow-y: auto; }
+        .achievements-content::-webkit-scrollbar { width: 6px; } .achievements-content::-webkit-scrollbar-thumb { background: #ffd700; border-radius: 4px; }
+        .achievements-content h2 { color: #ffd700; margin-top: 0; margin-bottom:20px; font-weight: 300; letter-spacing: 2px; }
+        .achievements-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-top: 10px; }
+        .achievement-card { background: rgba(0,0,0,0.3); border: 2px solid rgba(100,100,100,0.3); border-radius: 12px; padding: 14px 10px; display: flex; flex-direction: column; align-items: center; transition: all 0.3s; min-height: 150px; position: relative; }
+        .achievement-card.unlocked { border-color: #ffd700; background: rgba(255,215,0,0.1); box-shadow: 0 0 12px rgba(255,215,0,0.25); }
+        .achievement-card.locked { opacity: 0.5; }
+        .ach-icon { font-size: 30px; margin-bottom: 8px; }
+        .ach-name { font-size: 11px; font-weight: 700; color: var(--text-main); text-transform: uppercase; margin-bottom: 5px; line-height: 1.3; }
+        .ach-diff { font-size: 9px; padding: 2px 5px; border-radius: 4px; font-weight: bold; text-transform: uppercase; }
+        .diff-easy { color: #00e676; background: rgba(0,230,118,0.2); } .diff-medium { color: #ffc107; background: rgba(255,193,7,0.2); } .diff-hard { color: #ff5555; background: rgba(255,85,85,0.2); } .diff-impossible { color: #bf7fff; background: rgba(191,127,255,0.2); }
+        .ach-desc { font-size: 10px; color: var(--text-muted); margin-top: 5px; }
+
     </style>
     <script type="importmap">
         {
@@ -162,6 +194,15 @@
     <div id="screen-flash"></div>
 
     <div id="collection-tooltip"></div>
+    <div id="achievement-notification"></div>
+
+    <div id="modal-achievements" onclick="if(event.target===this)this.style.display='none'">
+        <div class="achievements-content">
+            <h2>🏅 CONQUISTAS</h2>
+            <div class="achievements-grid" id="achievements-grid"></div>
+            <div class="modal-buttons"><button onclick="document.getElementById('modal-achievements').style.display='none'">Fechar</button></div>
+        </div>
+    </div>
 
     <div id="start-screen" style="pointer-events: none;">
         <h1>MERGE COW 3D</h1>
@@ -210,6 +251,7 @@
             <div class="top-buttons">
                 <button onclick="document.getElementById('modal-settings').style.display='flex'">⚙️ Settings</button>
                 <button onclick="openLeaderboard()">🏆 Leaderboard</button>
+                <button onclick="openAchievements()" style="color: #ffd700; border-color: #ffd700;">🏅 Conquistas</button>
                 <button id="btn-auto-fuse" onclick="toggleAutoFuse()">🤖 Auto-Fuse: OFF</button>
             </div>
         </div>
@@ -223,7 +265,7 @@
         </div>
     </div>
 
-    <div id="modal-collection" class="modal-overlay">
+    <div id="modal-collection" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
         <div class="modal-content" style="max-width: 600px;">
             <h2>COLEÇÃO DE ESPÉCIES</h2>
             <div class="cow-grid" id="collection-grid"></div>
@@ -233,7 +275,7 @@
         </div>
     </div>
 
-    <div id="modal-settings" class="modal-overlay">
+    <div id="modal-settings" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
         <div class="modal-content">
             <h2>CONFIGURAÇÕES DO SISTEMA</h2>
             <div style="display:flex; justify-content:space-between; align-items:center; margin: 20px 0;">
@@ -251,7 +293,7 @@
         </div>
     </div>
 
-    <div id="modal-leaderboard" class="modal-overlay">
+    <div id="modal-leaderboard" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
         <div class="modal-content">
             <h2>LEADERBOARD GLOBAL</h2>
             <div class="lb-tabs">
@@ -286,6 +328,77 @@
         let money = SALDO_INICIAL; let totalCompras = 0; let totalSpawnedCows = 0; let cows = []; let nextCowId = 1;
         let explodedChickens = 0; let petChickensCount = 0;
         let autoFuseActive = false; let shadowsEnabled = true;
+
+        // ==========================================
+        // RASTREAMENTO DE CONQUISTAS
+        // ==========================================
+        let mergeCount = 0; let meteorDestroyed = false; let poopCollected = 0; 
+        let totalChickensExploded = 0; let ufoCount = 0; let floodSurvived = 0; let playTimeSec = 0;
+        let unlockedAchievements = JSON.parse(localStorage.getItem('MergeCow_Achievements')) || {};
+
+        const ACHIEVEMENTS = [
+            { id: 'buy_1', name: 'Primeiro Passo', icon: '🐄', desc: 'Compre 1 vaca', diff: 'easy', verify: () => totalCompras >= 1 },
+            { id: 'buy_10', name: 'Fazendeiro', icon: '🐮', desc: 'Compre 10 vacas', diff: 'easy', verify: () => totalCompras >= 10 },
+            { id: 'buy_100', name: 'Magnata', icon: '💰', desc: 'Compre 100 vacas', diff: 'hard', verify: () => totalCompras >= 100 },
+            { id: 'merge_1', name: 'DNA Básico', icon: '🧬', desc: 'Funda 2 vacas', diff: 'easy', verify: () => mergeCount >= 1 },
+            { id: 'merge_50', name: 'Bio-Engenheiro', icon: '🧪', desc: 'Realize 50 fusões', diff: 'medium', verify: () => mergeCount >= 50 },
+            { id: 'money_1k', name: 'Mão de Vaca', icon: '💵', desc: 'Tenha $1.000 de sobra', diff: 'easy', verify: () => money >= 1000 },
+            { id: 'money_100k', name: 'Milionário', icon: '🤑', desc: 'Tenha $100.000', diff: 'hard', verify: () => money >= 100000 },
+            { id: 'money_100m', name: 'Bilionário Voxel', icon: '💎', desc: 'Tenha $100.000.000', diff: 'impossible', verify: () => money >= 100000000 },
+            { id: 'cows_10', name: 'Mini Rebanho', icon: '🏘️', desc: 'Tenha 10 vacas no pasto', diff: 'easy', verify: () => cows.length >= 10 },
+            { id: 'cows_50', name: 'Festa no Pasto', icon: '🎊', desc: 'Tenha 50 vacas no pasto', diff: 'medium', verify: () => cows.length >= 50 },
+            { id: 'cows_100', name: 'Super Lotação', icon: '⚠️', desc: 'Tenha 100 vacas no pasto', diff: 'hard', verify: () => cows.length >= 100 },
+            { id: 'poop_10', name: 'Limpeza Básica', icon: '💩', desc: 'Colete 10 fezes', diff: 'easy', verify: () => poopCollected >= 10 },
+            { id: 'poop_100', name: 'Rei do Adubo', icon: '🚜', desc: 'Colete 100 fezes', diff: 'medium', verify: () => poopCollected >= 100 },
+            { id: 'chicken_1', name: 'O que foi isso?', icon: '💥', desc: 'Exploda 1 galinha', diff: 'easy', verify: () => totalChickensExploded >= 1 },
+            { id: 'chicken_5', name: 'KFC', icon: '🍗', desc: 'Exploda 5 galinhas', diff: 'medium', verify: () => totalChickensExploded >= 5 },
+            { id: 'chicken_50', name: 'Apocalipse Penudo', icon: '🔥', desc: 'Exploda 50 galinhas', diff: 'impossible', verify: () => totalChickensExploded >= 50 },
+            { id: 'pet_chicken', name: 'Novo Melhor Amigo', icon: '🥚', desc: 'Consiga a galinha Pet', diff: 'medium', verify: () => petChickensCount >= 1 },
+            { id: 'meteor_ok', name: 'Armageddon', icon: '☄️', desc: 'Destrua o Meteoro', diff: 'medium', verify: () => meteorDestroyed },
+            { id: 'flood_ok', name: 'A Arca', icon: '🌊', desc: 'Sobreviva à inundação', diff: 'medium', verify: () => floodSurvived >= 1 },
+            { id: 'ufo_ok', name: 'Eles Existem!', icon: '🛸', desc: 'Perca uma vaca pro OVNI', diff: 'medium', verify: () => ufoCount >= 1 },
+            // { id: 'lvl_5', name: 'Sólida e Robusta', icon: '🧱', desc: 'Faça uma vaca Nv. 5', diff: 'easy', verify: () => cows.some(c=>c.userData.level>=5) },
+            { id: 'lvl_10', name: 'A Esperada', icon: '🌟', desc: 'Faça uma vaca Nv. 10', diff: 'hard', verify: () => cows.some(c=>c.userData.level>=10) },
+            { id: 'alien_get', name: 'Visitante', icon: '👽', desc: 'Desbloqueie a vaca Alien', diff: 'hard', verify: () => !!unlockedCows['alien'] },
+            { id: 'flood_get', name: 'Aquática', icon: '💧', desc: 'Desbloqueie a vaca da Inundação', diff: 'hard', verify: () => !!unlockedCows['flood'] },
+            { id: 'play_5', name: 'Passatempo', icon: '⌚', desc: 'Jogue por 5 minutos', diff: 'easy', verify: () => playTimeSec >= 300 },
+            { id: 'play_30', name: 'Focado', icon: '🎮', desc: 'Jogue por 30 minutos', diff: 'medium', verify: () => playTimeSec >= 1800 },
+            // { id: 'island_2', name: 'Tijolos Além', icon: '🏗️', desc: 'Expanda sua Ilha 1 Vez', diff: 'medium', verify: () => currentIslandLevel >= 2 },
+            // { id: 'island_3', name: 'Imperador de Ilhas', icon: '🏝️', desc: 'Expanda sua Ilha 2 Vezes', diff: 'hard', verify: () => currentIslandLevel >= 3 }
+        ];
+
+        let achQueue = []; let achShowing = false;
+        function checkAchievements() {
+            ACHIEVEMENTS.forEach(ach => {
+                if(!unlockedAchievements[ach.id] && ach.verify()) {
+                    unlockedAchievements[ach.id] = true; localStorage.setItem('MergeCow_Achievements', JSON.stringify(unlockedAchievements));
+                    achQueue.push(ach); if(!achShowing) processAchQueue();
+                    if(document.getElementById('modal-achievements').style.display === 'flex') renderAchievements();
+                }
+            });
+        }
+        function processAchQueue() {
+            if(achQueue.length === 0) { achShowing = false; return; }
+            achShowing = true; const ach = achQueue.shift(); const notif = document.getElementById('achievement-notification');
+            const diffNames = {easy:'Fácil', medium:'Médio', hard:'Difícil', impossible:'Impossível'};
+            notif.innerHTML = `<div class="ach-notif-header"><span class="ach-notif-icon">${ach.icon}</span><div><div style="font-size:10px;color:#ffd700;letter-spacing:1px;font-weight:bold;">🏅 Conquista Desbloqueada 🏅</div><div class="ach-notif-title">${ach.name}</div></div></div><div class="ach-notif-desc">${ach.desc} • ${diffNames[ach.diff]}</div>`;
+            notif.style.display = 'block'; notif.style.animation = 'none'; setTimeout(()=>notif.style.animation='', 10);
+            setTimeout(() => { notif.style.display = 'none'; setTimeout(processAchQueue, 300); }, 3000);
+        }
+
+        window.openAchievements = () => { document.getElementById('modal-achievements').style.display='flex'; renderAchievements(); };
+        function renderAchievements() {
+            const grid = document.getElementById('achievements-grid'); grid.innerHTML = '';
+            const diffNames = {easy:'Fácil', medium:'Médio', hard:'Difícil', impossible:'Impossível'};
+            ACHIEVEMENTS.forEach(ach => {
+                let isUnl = !!unlockedAchievements[ach.id];
+                let card = document.createElement('div'); card.className = `achievement-card ${isUnl ? 'unlocked':'locked'}`;
+                card.innerHTML = `<div class="ach-icon">${isUnl?ach.icon:'🔒'}</div><div class="ach-name">${ach.name}</div><div class="ach-diff diff-${ach.diff}">${diffNames[ach.diff]}</div><div class="ach-desc">${ach.desc}</div>`;
+                grid.appendChild(card);
+            });
+        }
+
+        setInterval(checkAchievements, 5000); // Check states that dont trigger via events
 
         // ==========================================
         // VARIÁVEIS DE EXPANSÃO DA ILHA E ÁGUA
@@ -819,7 +932,7 @@
 
         document.getElementById('btn-buy').addEventListener('click', () => {
             let price = getCowPrice();
-            if (money >= price) { money -= price; totalCompras++; let x, z; do { x = (Math.random() - 0.5) * 40; z = (Math.random() - 0.5) * 40; } while(isColliding(x, z)); let cow = createVoxelCow(1, x, z); cow.position.y = 10; updateUI(); SFX.buy(); }
+            if (money >= price) { money -= price; totalCompras++; let x, z; do { x = (Math.random() - 0.5) * 40; z = (Math.random() - 0.5) * 40; } while(isColliding(x, z)); let cow = createVoxelCow(1, x, z); cow.position.y = 10; updateUI(); SFX.buy(); checkAchievements(); }
         });
 
         const COLLECTION_DATA = [];
@@ -1008,7 +1121,7 @@
                 let intersectsMeteor = raycaster.intersectObject(meteor.mesh);
                 if (intersectsMeteor.length > 0) {
                     meteor.clicks++; SFX.click(); meteor.mesh.scale.setScalar(1 + Math.random()*0.2); setTimeout(()=> {if(meteor.mesh) meteor.mesh.scale.setScalar(1);}, 50); createFloatingText("BAM!", meteor.mesh.position.x, meteor.mesh.position.z);
-                    if(meteor.clicks >= 100) meteor.phase = 'sinking'; return;
+                    if(meteor.clicks >= 100) { meteor.phase = 'sinking'; meteorDestroyed = true; checkAchievements(); } return;
                 }
             }
 
@@ -1018,11 +1131,12 @@
                 if (chick !== chickenGroup) {
                     chick.userData.clicks++; SFX.click();
                     if(chick.userData.clicks >= 2) {
-                        explodeChicken(chick); chickenGroup.remove(chick); explodedChickens++;
+                        explodeChicken(chick); chickenGroup.remove(chick); explodedChickens++; totalChickensExploded++; checkAchievements();
                         if(explodedChickens >= 5) {
                             explodedChickens -= 5; petChickensCount++; createVoxelChicken(true, (Math.random()-0.5)*4, -10.5);
                             createFloatingText("NOVO PET!", 0, -15);
                             unlockCowInCollection('chicken'); // Garante que a galinha seja desbloqueada na coleção
+                            checkAchievements();
                         }
                     }
                     return;
@@ -1030,7 +1144,7 @@
             }
 
             let intersectsPoop = raycaster.intersectObjects(poopGroup.children, true);
-            if (intersectsPoop.length > 0) { let p = intersectsPoop[0].object; money += p.userData.value; updateUI(); createFloatingText("+$" + abbreviate(p.userData.value), p.position.x, p.position.z); poopGroup.remove(p); SFX.poopCollect(); return; }
+            if (intersectsPoop.length > 0) { let p = intersectsPoop[0].object; money += p.userData.value; poopCollected++; checkAchievements(); updateUI(); createFloatingText("+$" + abbreviate(p.userData.value), p.position.x, p.position.z); poopGroup.remove(p); SFX.poopCollect(); return; }
 
             let intersects = raycaster.intersectObjects(cowGroup.children, true);
             if (intersects.length > 0) {
@@ -1053,7 +1167,7 @@
             draggedCow = null; controls.enabled = true;
         });
 
-        function performMerge3D(c1, c2) { let nextLevel = c1.userData.level + 1; let mx = (c1.position.x + c2.position.x) / 2; let mz = (c1.position.z + c2.position.z) / 2; cowGroup.remove(c1); cowGroup.remove(c2); cows = cows.filter(c => c !== c1 && c !== c2); let newCow = createVoxelCow(nextLevel, mx, mz); newCow.position.y = 5; createFloatingText("MERGE!", mx, mz); updateUI(); SFX.merge(); }
+        function performMerge3D(c1, c2) { let nextLevel = c1.userData.level + 1; let mx = (c1.position.x + c2.position.x) / 2; let mz = (c1.position.z + c2.position.z) / 2; cowGroup.remove(c1); cowGroup.remove(c2); cows = cows.filter(c => c !== c1 && c !== c2); let newCow = createVoxelCow(nextLevel, mx, mz); newCow.position.y = 5; createFloatingText("MERGE!", mx, mz); updateUI(); SFX.merge(); mergeCount++; checkAchievements(); }
 
         // ==========================================
         // OBJETOS DOS EVENTOS E CONTROLES UI
@@ -1128,7 +1242,6 @@
         function startChickenEvent() {
             chickenEvent.active = true; chickenEvent.timer = 0; chickenEvent.phase = 'opening';
         }
-
         // ==========================================
         // ANIMAÇÃO CORE E FÍSICA
         // ==========================================
@@ -1224,7 +1337,7 @@
 
         function animate() {
             requestAnimationFrame(animate);
-            let delta = Math.min(clock.getDelta(), 0.1); let time = clock.getElapsedTime();
+            let delta = Math.min(clock.getDelta(), 0.1); let time = clock.getElapsedTime(); playTimeSec += delta;
             controls.update(); cows.forEach(c => c.userData.targetCow = null);
 
             if (chickenEvent.active) {
@@ -1380,7 +1493,7 @@
                     if(ufoEvent.ufoGroup.position.distanceTo(new THREE.Vector3(ufoEvent.targetCow.position.x, 20, ufoEvent.targetCow.position.z)) < 2) {
                         ufoEvent.beam.visible = true; ufoEvent.targetCow.position.y += delta * 5; ufoEvent.targetCow.rotation.y += delta * 10; ufoEvent.targetCow.userData.legs.forEach(l => l.rotation.x = Math.sin(time*30));
                         if(ufoEvent.timer % 1 < 0.1) SFX.moo();
-                        if(ufoEvent.targetCow.position.y > 18) { cowGroup.remove(ufoEvent.targetCow); cows = cows.filter(c => c !== ufoEvent.targetCow); ufoEvent.beam.visible = false; ufoEvent.phase = 'leave'; ufoEvent.timer = 0; updateUI(); }
+                        if(ufoEvent.targetCow.position.y > 18) { cowGroup.remove(ufoEvent.targetCow); cows = cows.filter(c => c !== ufoEvent.targetCow); ufoEvent.beam.visible = false; ufoEvent.phase = 'leave'; ufoEvent.timer = 0; ufoCount++; checkAchievements(); updateUI(); }
                     }
                 } 
                 else if (ufoEvent.phase === 'leave') { let orbitX = Math.cos(time*2) * 15; let orbitZ = Math.sin(time*2) * 25; ufoEvent.ufoGroup.position.lerp(new THREE.Vector3(orbitX, 25, orbitZ), 0.1); if(ufoEvent.timer > 3) { ufoEvent.phase = 'supersonic'; } } 
@@ -1404,7 +1517,7 @@
                 else if (flood.phase === 'drain') { 
                     flood.cow.position.y = GROUND_LEVEL;
                     flood.cow.userData.headGroup.rotation.x = Math.PI / 4; 
-                    if(flood.timer > 60) { flood.active = false; flood.rainParts.visible = false; rainSound.setVolume(0); flood.clouds.forEach(c => scene.remove(c)); flood.clouds = []; flood.cow.userData.headGroup.rotation.x = 0; flood.cow.position.y = GROUND_LEVEL; } 
+                    if(flood.timer > 60) { flood.active = false; flood.rainParts.visible = false; rainSound.setVolume(0); flood.clouds.forEach(c => scene.remove(c)); flood.clouds = []; flood.cow.userData.headGroup.rotation.x = 0; flood.cow.position.y = GROUND_LEVEL; floodSurvived++; checkAchievements(); } 
                 } 
                 else if (flood.phase === 'protect') {
                     if(flood.timer < 3) { flood.clouds.forEach(c => { c.material.color.lerp(new THREE.Color(0x555555), delta); }); }
@@ -1567,7 +1680,7 @@
 
         function saveGame() {
             let data = cows.map(c => `${c.userData.level}|${c.position.x.toFixed(1)}|${c.position.z.toFixed(1)}|${c.userData.isFed ? 1 : 0}|${c.userData.type}`).join(";");
-            localStorage.setItem("MergeCow3D_Save", JSON.stringify({ money, totalCompras, totalSpawnedCows, petChickensCount, cows: data }));
+            localStorage.setItem("MergeCow3D_Save", JSON.stringify({ money, totalCompras, totalSpawnedCows, petChickensCount, cows: data, mrg: mergeCount, mtd: meteorDestroyed, ppC: poopCollected, ckx: totalChickensExploded, ufo: ufoCount, fld: floodSurvived, pts: playTimeSec }));
         }
 
         function loadGame() {
@@ -1575,6 +1688,7 @@
             if (saved) {
                 money = saved.money || SALDO_INICIAL; totalCompras = saved.totalCompras || 0; totalSpawnedCows = saved.totalSpawnedCows || 0;
                 petChickensCount = saved.petChickensCount || 0;
+                mergeCount = saved.mrg || 0; meteorDestroyed = saved.mtd || false; poopCollected = saved.ppC || 0; totalChickensExploded = saved.ckx || 0; ufoCount = saved.ufo || 0; floodSurvived = saved.fld || 0; playTimeSec = saved.pts || 0;
                 for(let i=0; i<petChickensCount; i++) createVoxelChicken(true, (Math.random()-0.5)*4, -10.5);
                 if (saved.cows) {
                     saved.cows.split(";").forEach(c => {
@@ -1592,7 +1706,7 @@
 
         window.toggleShadows = () => { shadowsEnabled = !shadowsEnabled; renderer.shadowMap.enabled = shadowsEnabled; scene.traverse(child => { if(child.material) child.needsUpdate = true; }); document.getElementById('btn-shadows').innerText = shadowsEnabled ? "LIGADO" : "DESLIGADO"; document.getElementById('btn-shadows').style.color = shadowsEnabled ? "var(--accent)" : "#ff3333"; };
         window.toggleSFX = () => { window.sfxEnabled = !window.sfxEnabled; if(!window.sfxEnabled) { continuousSounds.forEach(s => s.pause()); } else if (audioContextStarted) { continuousSounds.forEach(s => s.play()); } let btn = document.getElementById('btn-sfx'); btn.innerText = window.sfxEnabled ? "LIGADO" : "DESLIGADO"; btn.style.color = window.sfxEnabled ? "var(--accent)" : "#ff3333"; };
-        window.hardResetGame = () => { if(confirm("ATENÇÃO: Isso deletará todas as vacas e o dinheiro permanentemente.")) { cows.forEach(c => cowGroup.remove(c)); cows = []; poopGroup.clear(); chickenGroup.clear(); petChickenGroup.clear(); money = SALDO_INICIAL; totalCompras = 0; totalSpawnedCows = 0; petChickensCount = 0; explodedChickens = 0; unlockedCows = {1:true}; localStorage.removeItem('MergeCow_Collection'); updateUI(); document.getElementById('modal-settings').style.display='none'; } };
+        window.hardResetGame = () => { if(confirm("ATENÇÃO: Isso deletará todas as vacas e o dinheiro permanentemente.")) { cows.forEach(c => cowGroup.remove(c)); cows = []; poopGroup.clear(); chickenGroup.clear(); petChickenGroup.clear(); money = SALDO_INICIAL; totalCompras = 0; totalSpawnedCows = 0; petChickensCount = 0; explodedChickens = 0; unlockedCows = {1:true}; mergeCount=0; meteorDestroyed=false; poopCollected=0; totalChickensExploded=0; ufoCount=0; floodSurvived=0; playTimeSec=0; unlockedAchievements={}; localStorage.removeItem('MergeCow_Collection'); localStorage.removeItem('MergeCow_Achievements'); updateUI(); document.getElementById('modal-settings').style.display='none'; } };
         window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
 
         // Adicionar funcionalidade para alterar dinheiro permanentemente
