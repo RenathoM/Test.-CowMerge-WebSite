@@ -129,7 +129,7 @@
         .cow-card { 
             background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 12px; 
             padding: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            transition: all 0.3s; cursor: pointer;
+            transition: all 0.3s; cursor: pointer; position: relative;
         }
         .cow-card canvas { width: 64px; height: 64px; margin-bottom: 8px; }
         .cow-card.locked canvas { filter: brightness(0) blur(2px); opacity: 0.5; }
@@ -137,7 +137,7 @@
         .cow-card p { margin: 0; font-size: 12px; font-weight: bold; color: var(--text-main); }
         .cow-card .level { font-size: 10px; color: var(--text-muted); }
 
-        /* Tooltip Coleção */
+        /* Tooltip Coleção Atualizado (Entre o centro e a borda inferior) */
         #collection-tooltip {
             position: fixed; bottom: 25%; left: 50%; transform: translateX(-50%);
             background: rgba(20, 30, 40, 0.95); backdrop-filter: blur(10px);
@@ -182,9 +182,10 @@
                 <div id="event-toggle" style="cursor: pointer; font-weight: 800; color: var(--accent); letter-spacing: 1px; font-size: 14px; text-transform: uppercase; text-align: center;">▼ Controle de Eventos ▼</div>
                 
                 <div id="event-buttons" style="display: none; flex-direction: column; gap: 15px; margin-top: 15px; width: 100%;">
-                    <div style="display: flex; gap: 10px; justify-content: center;">
+                    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
                         <button id="btn-ev-flood" class="btn-primary" style="font-size: 12px; padding: 8px 15px; border-color: #00e5ff; color: #00e5ff;">Inundação</button>
                         <button id="btn-ev-ufo" class="btn-primary" style="font-size: 12px; padding: 8px 15px; border-color: #ffd700; color: #ffd700;">OVNI</button>
+                        <button id="btn-ev-chicken" class="btn-primary" style="font-size: 12px; padding: 8px 15px; border-color: #ffaa00; color: #ffaa00;">Galinhas</button>
                         <button id="btn-ev-meteor" class="btn-primary" style="background: rgba(255,50,50,0.2); border-color: #ff3333; color: #ff3333; font-size: 12px; padding: 8px 15px;">Meteoro</button>
                     </div>
 
@@ -207,7 +208,7 @@
             </div>
         </div>
         
-        <div id="controls-hint">ESQUERDO: Arrastar | DIREITO: Orbitar | SCROLL: Zoom | CLIQUE NAS FEZES: Bônus!</div>
+        <div id="controls-hint">ESQUERDO: Arrastar | DIREITO: Orbitar | SCROLL: Zoom | CLIQUE DUAS VEZES EM GALINHAS DURANTE A FUGA!</div>
 
         <div class="footer">
             <button id="btn-buy" class="btn-primary btn-large">
@@ -277,6 +278,7 @@
         const GROUND_LEVEL = 1.0; 
         
         let money = SALDO_INICIAL; let totalCompras = 0; let totalSpawnedCows = 0; let cows = []; let nextCowId = 1;
+        let explodedChickens = 0; let petChickensCount = 0;
         let autoFuseActive = false; let shadowsEnabled = true;
 
         const COW_COLORS = [
@@ -412,7 +414,7 @@
                 osc.type = 'sawtooth';
                 osc.frequency.setValueAtTime(250, audioCtx.currentTime);
                 osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 1.0);
-                gain.gain.setValueAtTime(0.14, audioCtx.currentTime); // Reduzido em 30% (Era 0.2)
+                gain.gain.setValueAtTime(0.098, audioCtx.currentTime); // Reduzido em 30% do 0.14 original
                 gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.0);
                 osc.connect(gain); gain.connect(listener.getInput()); osc.start(); osc.stop(audioCtx.currentTime + 1.0);
             },
@@ -430,6 +432,21 @@
                 osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
                 gain.gain.setValueAtTime(0.2, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
                 osc.connect(gain); gain.connect(listener.getInput()); osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            },
+            cluck: () => {
+                if(!window.sfxEnabled) return;
+                const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                osc.type = 'triangle'; osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.connect(gain); gain.connect(listener.getInput()); osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            },
+            featherExplosion: () => {
+                if(!window.sfxEnabled) return;
+                const buffer = createNoiseBuffer(0.2, 'white'); const source = audioCtx.createBufferSource(); source.buffer = buffer;
+                const filter = audioCtx.createBiquadFilter(); filter.type = 'highpass'; filter.frequency.value = 1000;
+                const gain = audioCtx.createGain(); gain.gain.setValueAtTime(0.3, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                source.connect(filter); filter.connect(gain); gain.connect(listener.getInput()); source.start();
             }
         };
 
@@ -625,8 +642,14 @@
             const body = new THREE.Mesh(new THREE.BoxGeometry(14, 12, 16), matBarnRed); body.position.y = 6; body.castShadow = true; body.receiveShadow = true; barn.add(body);
             const roof = new THREE.Mesh(new THREE.CylinderGeometry(9.5, 9.5, 17, 3), matRoof); roof.rotation.z = Math.PI / 2; roof.rotation.x = Math.PI / 2; roof.position.set(0, 14, 0); roof.castShadow = true; barn.add(roof);
             const matWhite = new THREE.MeshStandardMaterial({color: 0xffffff, flatShading: true});
-            const doorFrame = new THREE.Mesh(new THREE.BoxGeometry(6, 8, 0.5), matWhite); doorFrame.position.set(0, 4, 8); barn.add(doorFrame);
-            const doorDark = new THREE.Mesh(new THREE.BoxGeometry(5, 7.5, 0.6), matWood); doorDark.position.set(0, 3.75, 8); barn.add(doorDark);
+            
+            // Portas Duplas (Pivot nas bordas)
+            const doorLGroup = new THREE.Group(); doorLGroup.position.set(-1.5, 3.75, 8.3);
+            const doorL = new THREE.Mesh(new THREE.BoxGeometry(3, 7.5, 0.6), matWood); doorL.position.set(1.5, 0, 0); doorLGroup.add(doorL); barn.add(doorLGroup);
+            const doorRGroup = new THREE.Group(); doorRGroup.position.set(1.5, 3.75, 8.3);
+            const doorR = new THREE.Mesh(new THREE.BoxGeometry(3, 7.5, 0.6), matWood); doorR.position.set(-1.5, 0, 0); doorRGroup.add(doorR); barn.add(doorRGroup);
+            window.barnDoors = { left: doorLGroup, right: doorRGroup, openAmount: 0 };
+
             const loftFrame = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 0.5), matWhite); loftFrame.position.set(0, 10, 8.1); barn.add(loftFrame);
             const loftDark = new THREE.Mesh(new THREE.BoxGeometry(3, 2, 0.6), new THREE.MeshStandardMaterial({color: 0x111111})); loftDark.position.set(0, 10, 8.1); barn.add(loftDark);
             const matSilo = new THREE.MeshStandardMaterial({color: 0xcccccc, metalness: 0.5, roughness: 0.5, flatShading: true});
@@ -659,9 +682,46 @@
         } buildTree(-25, -10); buildTree(-20, -18); buildTree(25, 5); buildTree(28, -8); buildTree(-15, 25);
 
         // ==========================================
-        // VACA VOXEL 3D
+        // GALINHAS & VACA VOXEL 3D
         // ==========================================
         const cowGroup = new THREE.Group(); scene.add(cowGroup);
+        const chickenGroup = new THREE.Group(); scene.add(chickenGroup);
+        const petChickenGroup = new THREE.Group(); scene.add(petChickenGroup);
+        const chickenParticles = [];
+
+        function createVoxelChicken(isPet = false, px, pz) {
+            const chicken = new THREE.Group();
+            chicken.userData = { clicks: 0, isPet: isPet, targetYRot: Math.random() * Math.PI * 2, velocity: 0, jumpTimer: 0, isJumping: false, actionTimer: 30.0, targetPoop: null };
+            
+            const matWhite = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, flatShading: true });
+            const matRed = new THREE.MeshStandardMaterial({ color: 0xff0000, flatShading: true });
+            const matYellow = new THREE.MeshStandardMaterial({ color: 0xffcc00, flatShading: true });
+
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.6), matWhite); body.position.y = 1.0; body.castShadow = true; chicken.add(body);
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), matWhite); head.position.set(0, 1.8, 0.6); head.castShadow = true; chicken.add(head);
+            const beak = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.4), matYellow); beak.position.set(0, 1.7, 1.1); chicken.add(beak);
+            const comb = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.6), matRed); comb.position.set(0, 2.3, 0.6); chicken.add(comb);
+            const wingL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.8, 1.0), matWhite); wingL.position.set(0.7, 1.0, 0); chicken.add(wingL);
+            const wingR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.8, 1.0), matWhite); wingR.position.set(-0.7, 1.0, 0); chicken.add(wingR);
+
+            chicken.userData.wings = [wingL, wingR]; chicken.userData.body = body;
+
+            if (isPet) { const collar = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.2, 0.9), new THREE.MeshStandardMaterial({ color: 0x0000ff })); collar.position.set(0, 1.3, 0.6); chicken.add(collar); }
+
+            chicken.position.set(px, GROUND_LEVEL, pz);
+            if(isPet) petChickenGroup.add(chicken); else chickenGroup.add(chicken);
+            return chicken;
+        }
+
+        function explodeChicken(chicken) {
+            SFX.featherExplosion();
+            const feathers = new THREE.Group(); const matFeather = new THREE.MeshBasicMaterial({color: 0xffffff});
+            for(let i=0; i<15; i++) {
+                const f = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.1), matFeather); f.position.copy(chicken.position); f.position.y += 1;
+                f.userData = { vx: (Math.random()-0.5)*10, vy: Math.random()*10 + 5, vz: (Math.random()-0.5)*10, rot: Math.random()*0.5 }; feathers.add(f);
+            }
+            scene.add(feathers); chickenParticles.push(feathers);
+        }
 
         function createVoxelCow(level, px, pz, isRestoredFed = false, type = 'normal') {
             const cow = new THREE.Group();
@@ -728,11 +788,21 @@
         const COLLECTION_DATA = [];
         for(let i=1; i<=10; i++) COLLECTION_DATA.push({ id: i, name: 'Vaca Nv.'+i, color: COW_COLORS[i-1] || 0xffffff });
         COLLECTION_DATA.push({ id: 'alien', name: 'Vaca Alien', color: 0x00ffff }); COLLECTION_DATA.push({ id: 'flood', name: 'Vaca Inundação', color: 0x0055ff });
+        COLLECTION_DATA.push({ id: 'chicken', name: 'Galinha Pet', color: 0xffffff });
 
         function drawCowThumb(canvas, color, isAlien) {
             const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,64,64); ctx.fillStyle = '#' + color.toString(16).padStart(6, '0');
             ctx.fillRect(16, 20, 32, 24); ctx.fillRect(36, 12, 16, 16); ctx.fillStyle = '#ffb6c1'; ctx.fillRect(44, 20, 10, 8); ctx.fillStyle = '#333'; ctx.fillRect(40, 16, 4, 4);
             ctx.fillRect(20, 44, 6, 12); ctx.fillRect(38, 44, 6, 12); if(isAlien) { ctx.strokeStyle = '#ff0'; ctx.lineWidth=2; ctx.strokeRect(14,18,36,28); }
+        }
+
+        function drawChickenThumb(canvas) {
+            const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,64,64); 
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(16, 28, 24, 20); ctx.fillRect(36, 16, 16, 16); 
+            ctx.fillStyle = '#ffcc00'; ctx.fillRect(52, 22, 6, 6); 
+            ctx.fillStyle = '#ff0000'; ctx.fillRect(40, 8, 8, 8); 
+            ctx.fillStyle = '#333'; ctx.fillRect(44, 20, 4, 4); 
+            ctx.fillStyle = '#ffcc00'; ctx.fillRect(20, 48, 4, 8); ctx.fillRect(32, 48, 4, 8);
         }
 
         function unlockCowInCollection(id) { if (!unlockedCows[id]) { unlockedCows[id] = true; localStorage.setItem('MergeCow_Collection', JSON.stringify(unlockedCows)); renderCollection(); } }
@@ -745,8 +815,8 @@
                 let isUnlocked = unlockedCows[c.id]; 
                 card.className = 'cow-card ' + (isUnlocked ? '' : 'locked');
                 
-                let isEvent = c.id === 'alien' || c.id === 'flood';
-                if (isEvent) card.style.background = 'rgba(255, 255, 150, 0.2)'; // Cor de fundo evento
+                let isEvent = c.id === 'alien' || c.id === 'flood' || c.id === 'chicken';
+                if (isEvent) card.style.background = 'rgba(255, 255, 150, 0.2)'; 
                 
                 card.addEventListener('mouseenter', () => {
                     let tooltip = document.getElementById('collection-tooltip');
@@ -761,12 +831,22 @@
                     else if(typeof c.id === 'number') text = `Junte duas vacas de Nível ${c.id - 1} para obter esta.`;
                     else if(c.id === 'alien') text = "Sobreviva à queda do Meteoro e clique nele 100 vezes para o quebrar.";
                     else if(c.id === 'flood') text = "Sobreviva à Inundação. A vaca aparecerá para drenar a água.";
+                    else if(c.id === 'chicken') text = "Exploda 5 galinhas durante 'A fuga das galinhas'. Ela recolhe fezes com bônus de 30%!";
                     tooltip.innerHTML = `<strong>${c.name}</strong><br><span style="font-size:12px; opacity:0.8;">${text}</span>`;
                     SFX.pop();
                 });
                 card.addEventListener('mouseleave', () => { document.getElementById('collection-tooltip').style.display = 'none'; });
 
-                let canvas = document.createElement('canvas'); canvas.width=64; canvas.height=64; drawCowThumb(canvas, c.color, c.id==='alien'); card.appendChild(canvas);
+                if (c.id === 'chicken') {
+                    let badge = document.createElement('div'); badge.innerText = "Pet";
+                    badge.style.position = 'absolute'; badge.style.top = '5px'; badge.style.right = '5px';
+                    badge.style.background = '#ff0000'; badge.style.color = 'white'; badge.style.fontSize = '8px'; badge.style.padding = '2px 4px'; badge.style.borderRadius = '4px';
+                    card.appendChild(badge);
+                }
+
+                let canvas = document.createElement('canvas'); canvas.width=64; canvas.height=64; 
+                if (c.id === 'chicken') drawChickenThumb(canvas); else drawCowThumb(canvas, c.color, c.id==='alien'); 
+                card.appendChild(canvas);
                 let title = document.createElement('p'); title.innerText = isUnlocked ? c.name : '???'; card.appendChild(title);
                 let lvl = document.createElement('span'); lvl.className = 'level'; lvl.innerText = typeof c.id === 'number' ? `Level ${c.id}` : 'Evento'; card.appendChild(lvl);
                 grid.appendChild(card);
@@ -800,8 +880,8 @@
             if (!nick) { alert("Por favor, digite um apelido para enviar sua pontuação!"); return; }
             if (nick.length > 5) nick = nick.substring(0, 5);
             
-            let typeName = currentLBTab === 'money' ? 'Fortuna' : 'Vacas Totais';
-            if (!confirm(`Atenção: Ao enviar sua pontuação, o seu progresso local desta aba (${typeName}) será resetado a zero. Deseja continuar?`)) return;
+            let typeName = currentLBTab === 'money' ? 'Fortuna' : 'Quantidade de Vacas';
+            if (!confirm(`Atenção: Ao enviar sua pontuação, você está ciente de que irá perder o progresso local deste status (${typeName}). Deseja continuar?`)) return;
 
             let btn = document.querySelector('.lb-input-group button');
             btn.innerText = "ENVIANDO..."; btn.disabled = true;
@@ -853,7 +933,7 @@
         };
 
         // ==========================================
-        // RAYCASTER (CLIQUES)
+        // RAYCASTER (CLIQUES E EVENTOS)
         // ==========================================
         const raycaster = new THREE.Raycaster(); const mouse = new THREE.Vector2();
         let draggedCow = null; let offset = new THREE.Vector3();
@@ -870,6 +950,23 @@
                 if (intersectsMeteor.length > 0) {
                     meteor.clicks++; SFX.click(); meteor.mesh.scale.setScalar(1 + Math.random()*0.2); setTimeout(()=> {if(meteor.mesh) meteor.mesh.scale.setScalar(1);}, 50); createFloatingText("BAM!", meteor.mesh.position.x, meteor.mesh.position.z);
                     if(meteor.clicks >= 100) meteor.phase = 'sinking'; return;
+                }
+            }
+
+            let intersectsChicken = raycaster.intersectObjects(chickenGroup.children, true);
+            if (intersectsChicken.length > 0) {
+                let chick = intersectsChicken[0].object; while(chick.parent && chick.parent !== chickenGroup) chick = chick.parent;
+                if (chick !== chickenGroup) {
+                    chick.userData.clicks++; SFX.click();
+                    if(chick.userData.clicks >= 2) {
+                        explodeChicken(chick); chickenGroup.remove(chick); explodedChickens++;
+                        if(explodedChickens >= 5) {
+                            explodedChickens -= 5; petChickensCount++; createVoxelChicken(true, (Math.random()-0.5)*4, -10.5);
+                            createFloatingText("NOVO PET!", 0, -15);
+                            unlockCowInCollection('chicken');
+                        }
+                    }
+                    return;
                 }
             }
 
@@ -907,6 +1004,8 @@
         const ufoMat = new THREE.MeshStandardMaterial({color: 0x888888, metalness: 0.8, roughness: 0.2});
         const domeMat = new THREE.MeshPhysicalMaterial({color: 0x00ff00, transmission:0.8, opacity:1, transparent:true});
         const flood = { active: false, timer: 0, phase: 'none', clouds: [], rainParts: null, cow: null, isProtecting: false };
+        const chickenEvent = { active: false, timer: 0, phase: 'none' };
+        
         const waterGeo = new THREE.PlaneGeometry(10000, 10000, 16, 16); waterGeo.rotateX(-Math.PI/2);
         const waterMat = new THREE.MeshPhysicalMaterial({color: 0x0055ff, transmission: 0.9, opacity: 0.8, transparent: true, roughness: 0.1});
         const waterMesh = new THREE.Mesh(waterGeo, waterMat); waterMesh.position.y = GROUND_LEVEL - 5; scene.add(waterMesh);
@@ -924,21 +1023,24 @@
         });
 
         function triggerManualEvent(startFunc) {
-            if (meteor.active || ufoEvent.active || flood.active) return;
-            setTimeout(() => { if (!meteor.active && !ufoEvent.active && !flood.active) startFunc(); }, 1000); 
+            if (meteor.active || ufoEvent.active || flood.active || chickenEvent.active) return;
+            setTimeout(() => { if (!meteor.active && !ufoEvent.active && !flood.active && !chickenEvent.active) startFunc(); }, 1000); 
         }
 
-        document.getElementById('btn-ev-meteor').addEventListener('click', () => triggerManualEvent(startMeteorEvent)); document.getElementById('btn-ev-ufo').addEventListener('click', () => triggerManualEvent(startUFOEvent)); document.getElementById('btn-ev-flood').addEventListener('click', () => triggerManualEvent(startFloodEvent));
+        document.getElementById('btn-ev-meteor').addEventListener('click', () => triggerManualEvent(startMeteorEvent)); 
+        document.getElementById('btn-ev-ufo').addEventListener('click', () => triggerManualEvent(startUFOEvent)); 
+        document.getElementById('btn-ev-flood').addEventListener('click', () => triggerManualEvent(startFloodEvent));
+        document.getElementById('btn-ev-chicken').addEventListener('click', () => triggerManualEvent(startChickenEvent));
 
         setInterval(() => {
-            if (meteor.active || flood.active || ufoEvent.active) return;
+            if (meteor.active || flood.active || ufoEvent.active || chickenEvent.active) return;
             if (Math.random() < 0.05 && !unlockedCows['alien']) { startMeteorEvent(); } 
             else if (Math.random() < 0.1 && cows.length > 0) { startUFOEvent(); } 
             else if (Math.random() < 0.3) { startFloodEvent(); } 
             else if (Math.random() < 0.5 && cows.length > 0) { SFX.cough(); createFloatingText("*Cof*", cows[0].position.x, cows[0].position.z); }
         }, 60000);
 
-        function startMeteorEvent() { meteor.active = true; meteor.timer = 0; meteor.phase = 'pre1'; meteor.clicks = 0; windMat.color.setHex(0x00ff00); }
+        function startMeteorEvent() { if(unlockedCows['alien']) return; meteor.active = true; meteor.timer = 0; meteor.phase = 'pre1'; meteor.clicks = 0; windMat.color.setHex(0x00ff00); }
 
         function startUFOEvent() {
             let validCows = cows.filter(c => c.userData.type === 'normal'); if(validCows.length===0) return;
@@ -964,6 +1066,10 @@
             flood.rainParts.visible = false;
         }
 
+        function startChickenEvent() {
+            chickenEvent.active = true; chickenEvent.timer = 0; chickenEvent.phase = 'opening';
+        }
+
         // ==========================================
         // ANIMAÇÃO CORE E FÍSICA
         // ==========================================
@@ -979,6 +1085,118 @@
             requestAnimationFrame(animate);
             let delta = Math.min(clock.getDelta(), 0.1); let time = clock.getElapsedTime();
             controls.update(); cows.forEach(c => c.userData.targetCow = null);
+
+            if (chickenEvent.active) {
+                chickenEvent.timer += delta;
+                if (chickenEvent.phase === 'opening') {
+                    window.barnDoors.openAmount = Math.min(1, window.barnDoors.openAmount + delta * 2);
+                    window.barnDoors.left.rotation.y = -window.barnDoors.openAmount * (Math.PI / 2 * 0.9);
+                    window.barnDoors.right.rotation.y = window.barnDoors.openAmount * (Math.PI / 2 * 0.9);
+                    if (window.barnDoors.openAmount >= 1) {
+                        chickenEvent.phase = 'running'; chickenEvent.timer = 0;
+                        for(let i=0; i<20; i++) {
+                            let c = createVoxelChicken(false, (Math.random()-0.5)*4, -10.5); c.userData.targetYRot = (Math.random()-0.5)*Math.PI; c.userData.velocity = 15;
+                        }
+                    }
+                } else if (chickenEvent.phase === 'running') {
+                    if (chickenEvent.timer > 10) {
+                        chickenEvent.phase = 'returning';
+                        chickenGroup.children.forEach(c => { c.userData.returning = true; });
+                    }
+                } else if (chickenEvent.phase === 'returning') {
+                    let allReturned = true;
+                    chickenGroup.children.forEach(c => {
+                        let dx = 0 - c.position.x;
+                        let dz = -20 - c.position.z;
+                        let dist2D = Math.sqrt(dx*dx + dz*dz);
+                        if (dist2D > 2) { 
+                            allReturned = false; 
+                            let angle = Math.atan2(dx, dz);
+                            let diff = angle - c.rotation.y;
+                            while(diff < -Math.PI) diff += Math.PI * 2;
+                            while(diff > Math.PI) diff -= Math.PI * 2;
+                            c.rotation.y += diff * delta * 10;
+                            c.position.x += Math.sin(c.rotation.y) * delta * 15;
+                            c.position.z += Math.cos(c.rotation.y) * delta * 15;
+                        } 
+                        else { chickenGroup.remove(c); }
+                    });
+                    if (allReturned || chickenGroup.children.length === 0) { chickenGroup.clear(); chickenEvent.phase = 'closing'; }
+                } else if (chickenEvent.phase === 'closing') {
+                    window.barnDoors.openAmount = Math.max(0, window.barnDoors.openAmount - delta * 2);
+                    window.barnDoors.left.rotation.y = -window.barnDoors.openAmount * (Math.PI / 2 * 0.9);
+                    window.barnDoors.right.rotation.y = window.barnDoors.openAmount * (Math.PI / 2 * 0.9);
+                    if (window.barnDoors.openAmount <= 0) { chickenEvent.active = false; chickenEvent.phase = 'none'; }
+                }
+            }
+
+            chickenParticles.forEach((ps, idx) => {
+                let done = true;
+                ps.children.forEach(p => {
+                    p.userData.vy -= delta * 30; p.position.x += p.userData.vx * delta; p.position.y += p.userData.vy * delta; p.position.z += p.userData.vz * delta;
+                    p.rotation.x += p.userData.rot; p.rotation.y += p.userData.rot; if(p.position.y > GROUND_LEVEL) done = false;
+                });
+                if(done) { scene.remove(ps); chickenParticles.splice(idx, 1); }
+            });
+
+            [...chickenGroup.children, ...petChickenGroup.children].forEach(c => {
+                if (c.userData.isPet) {
+                    c.userData.actionTimer -= delta;
+                    if (c.userData.actionTimer <= 0) {
+                        c.userData.actionTimer = 30.0;
+                        if (Math.random() < 0.5 && poopGroup.children.length > 0) {
+                            let closest = null; let minDist = Infinity;
+                            poopGroup.children.forEach(p => { let d = c.position.distanceTo(p.position); if(d < minDist) { minDist = d; closest = p; } });
+                            c.userData.targetPoop = closest;
+                        }
+                    }
+                    if (c.userData.targetPoop && c.userData.targetPoop.parent) {
+                        let p = c.userData.targetPoop; 
+                        let dx = p.position.x - c.position.x;
+                        let dz = p.position.z - c.position.z;
+                        let dist2D = Math.sqrt(dx*dx + dz*dz);
+                        if (dist2D < 2) {
+                            money += p.userData.value * 1.3; updateUI(); createFloatingText("+$" + abbreviate(p.userData.value * 1.3), p.position.x, p.position.z);
+                            poopGroup.remove(p); SFX.poopCollect(); c.userData.targetPoop = null; c.userData.velocity = 0;
+                        } else {
+                            let angle = Math.atan2(dx, dz);
+                            let diff = angle - c.rotation.y;
+                            while(diff < -Math.PI) diff += Math.PI * 2;
+                            while(diff > Math.PI) diff -= Math.PI * 2;
+                            c.rotation.y += diff * delta * 10;
+                            c.position.x += Math.sin(c.rotation.y) * delta * 8;
+                            c.position.z += Math.cos(c.rotation.y) * delta * 8;
+                            c.userData.velocity = 8;
+                        }
+                    } else {
+                        let diff = c.userData.targetYRot - c.rotation.y; c.rotation.y += diff * delta * 4;
+                        if(Math.random() < 0.02) c.userData.velocity = (Math.random() > 0.5) ? 4 : 0; 
+                        if(Math.random() < 0.01) c.userData.targetYRot += (Math.random() - 0.5) * Math.PI;
+                        let nX = c.position.x + Math.sin(c.rotation.y) * c.userData.velocity * delta; let nZ = c.position.z + Math.cos(c.rotation.y) * c.userData.velocity * delta;
+                        if (isColliding(nX, nZ)) { c.userData.targetYRot += Math.PI; c.userData.velocity = 0; } else { c.position.x = nX; c.position.z = nZ; }
+                    }
+                } else {
+                    if(!c.userData.returning) {
+                        c.userData.jumpTimer -= delta;
+                        if(c.userData.jumpTimer <= 0) { c.userData.jumpTimer = 1.0; if(Math.random() < 0.3) { c.userData.isJumping = true; c.userData.jumpVy = 15; SFX.cluck(); } }
+                        if(c.userData.isJumping) {
+                            c.userData.jumpVy -= delta * 40; c.position.y += c.userData.jumpVy * delta;
+                            if(c.position.y <= GROUND_LEVEL) { c.position.y = GROUND_LEVEL; c.userData.isJumping = false; }
+                        }
+                        let diff = c.userData.targetYRot - c.rotation.y; c.rotation.y += diff * delta * 4;
+                        if(Math.random() < 0.02) c.userData.targetYRot += (Math.random() - 0.5) * Math.PI;
+                        let nX = c.position.x + Math.sin(c.rotation.y) * 12 * delta; let nZ = c.position.z + Math.cos(c.rotation.y) * 12 * delta;
+                        if (isColliding(nX, nZ)) { c.userData.targetYRot += Math.PI; } else { c.position.x = nX; c.position.z = nZ; }
+                    }
+                }
+                
+                if(c.userData.isJumping) {
+                    if(c.userData.jumpVy > 0) { c.userData.wings[0].rotation.z = Math.sin(time * 30) * 0.5 - 0.5; c.userData.wings[1].rotation.z = -Math.sin(time * 30) * 0.5 + 0.5; } 
+                    else { c.userData.wings[0].rotation.z = -Math.PI / 2; c.userData.wings[1].rotation.z = Math.PI / 2; }
+                } else if (c.userData.velocity > 0 || c.userData.returning || (!c.userData.isPet && chickenEvent.phase === 'running')) {
+                    c.userData.wings[0].rotation.z = Math.sin(time * 20) * 0.3 - 0.3; c.userData.wings[1].rotation.z = -Math.sin(time * 20) * 0.3 + 0.3;
+                } else { c.userData.wings[0].rotation.z = 0; c.userData.wings[1].rotation.z = 0; }
+            });
 
             if (meteor.active) {
                 meteor.timer += delta;
@@ -1198,13 +1416,15 @@
 
         function saveGame() {
             let data = cows.map(c => `${c.userData.level}|${c.position.x.toFixed(1)}|${c.position.z.toFixed(1)}|${c.userData.isFed ? 1 : 0}|${c.userData.type}`).join(";");
-            localStorage.setItem("MergeCow3D_Save", JSON.stringify({ money, totalCompras, totalSpawnedCows, cows: data }));
+            localStorage.setItem("MergeCow3D_Save", JSON.stringify({ money, totalCompras, totalSpawnedCows, petChickensCount, cows: data }));
         }
 
         function loadGame() {
             let saved = JSON.parse(localStorage.getItem("MergeCow3D_Save"));
             if (saved) {
                 money = saved.money || SALDO_INICIAL; totalCompras = saved.totalCompras || 0; totalSpawnedCows = saved.totalSpawnedCows || 0;
+                petChickensCount = saved.petChickensCount || 0;
+                for(let i=0; i<petChickensCount; i++) createVoxelChicken(true, (Math.random()-0.5)*4, -10.5);
                 if (saved.cows) {
                     saved.cows.split(";").forEach(c => {
                         let [l, x, z, isFedStatus, t] = c.split("|");
@@ -1221,7 +1441,7 @@
 
         window.toggleShadows = () => { shadowsEnabled = !shadowsEnabled; renderer.shadowMap.enabled = shadowsEnabled; scene.traverse(child => { if(child.material) child.needsUpdate = true; }); document.getElementById('btn-shadows').innerText = shadowsEnabled ? "LIGADO" : "DESLIGADO"; document.getElementById('btn-shadows').style.color = shadowsEnabled ? "var(--accent)" : "#ff3333"; };
         window.toggleSFX = () => { window.sfxEnabled = !window.sfxEnabled; if(!window.sfxEnabled) { continuousSounds.forEach(s => s.pause()); } else if (audioContextStarted) { continuousSounds.forEach(s => s.play()); } let btn = document.getElementById('btn-sfx'); btn.innerText = window.sfxEnabled ? "LIGADO" : "DESLIGADO"; btn.style.color = window.sfxEnabled ? "var(--accent)" : "#ff3333"; };
-        window.hardResetGame = () => { if(confirm("ATENÇÃO: Isso deletará todas as vacas e o dinheiro permanentemente.")) { cows.forEach(c => cowGroup.remove(c)); cows = []; poopGroup.clear(); money = SALDO_INICIAL; totalCompras = 0; totalSpawnedCows = 0; unlockedCows = {1:true}; localStorage.removeItem('MergeCow_Collection'); updateUI(); document.getElementById('modal-settings').style.display='none'; } };
+        window.hardResetGame = () => { if(confirm("ATENÇÃO: Isso deletará todas as vacas e o dinheiro permanentemente.")) { cows.forEach(c => cowGroup.remove(c)); cows = []; poopGroup.clear(); chickenGroup.clear(); petChickenGroup.clear(); money = SALDO_INICIAL; totalCompras = 0; totalSpawnedCows = 0; petChickensCount = 0; explodedChickens = 0; unlockedCows = {1:true}; localStorage.removeItem('MergeCow_Collection'); updateUI(); document.getElementById('modal-settings').style.display='none'; } };
         window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
 
         loadGame(); animate();
