@@ -245,7 +245,7 @@
                 <button id="btn-sfx" class="btn-primary" onclick="toggleSFX()">LIGADO</button>
             </div>
             <div class="modal-buttons">
-                <button class="btn-primary" style="background: rgba(255,50,50,0.2); border-color: #ff3333; color: #ff3333;" onclick="hardResetGame()">Format C: (Reset)</button>
+                <button class="btn-primary" style="background: rgba(255,50,50,0.2); border-color: #ff3333; color: #ff3333;" onclick="hardResetGame()">Reset Status</button>
                 <button onclick="this.closest('.modal-overlay').style.display='none'">Fechar</button>
             </div>
         </div>
@@ -297,7 +297,9 @@
         let currentWaterScale = 1;
 
         const COW_COLORS = [
-            0xf5f5dc, 0xbdc3c7, 0xffd700, 0xff8c00, 0xff3333, 0x9b59b6, 0x00e5ff, 0x00e676, 0x111111, 0xff00ff
+            0xf5f5dc, 0xbdc3c7, 0xffd700, 0xff8c00, 0xff3333, 0x9b59b6, 0x00e5ff, 0x00e676, 0x111111, 0xff00ff,
+            0x8d5524, 0xc68642, 0xe0ac69, 0xf1c27d, 0xffdbac, 0x6b4226, 0x4e342e, 0x3e2723, 0x212121, 0x607d8b,
+            0x90caf9, 0x43a047, 0x388e3c, 0x689f38, 0xafb42b, 0xfbc02d, 0xff7043, 0x8d6e63, 0xbdbdbd, 0x263238
         ];
 
         let unlockedCows = JSON.parse(localStorage.getItem('MergeCow_Collection')) || { 1: true };
@@ -790,7 +792,16 @@
         // ==========================================
         function abbreviate(v) { if (v < 1000) return Math.floor(v).toString(); const u = ["", "K", "M", "B", "T"]; let idx = 0; while (v >= 1000 && idx < u.length - 1) { v /= 1000; idx++; } return v.toFixed(1).replace(/\.0$/, '') + u[idx]; }
         function getCowPrice() { return Math.floor(PRECO_INICIAL * Math.pow(MULTIPLICADOR_CUSTO, totalCompras)); }
-        function getCowIncome(cow) { if(cow.userData.type === 'alien') return 500000; if(cow.userData.type === 'flood') return 100000; return cow.userData.isFed ? (INCOME_PER_LEVEL[cow.userData.level]||0)*2 : (INCOME_PER_LEVEL[cow.userData.level]||0); }
+        // Substitua a função getCowIncome para retornar o valor correto de cada vaca
+        function getCowIncome(cow) {
+            if (cow.userData.type === 'alien') return 500000;
+            if (cow.userData.type === 'flood') return 100000;
+            // Usa o valor da COLLECTION_DATA para cada nível
+            if (typeof cow.userData.level === 'number' && cow.userData.level >= 1 && cow.userData.level <= 10) {
+                return COLLECTION_DATA[cow.userData.level - 1].value || 0;
+            }
+            return 0;
+        }
 
         function updateUI() {
             document.getElementById('money-display').innerText = abbreviate(money);
@@ -806,9 +817,18 @@
         });
 
         const COLLECTION_DATA = [];
-        for(let i=1; i<=10; i++) COLLECTION_DATA.push({ id: i, name: 'Vaca Nv.'+i, color: COW_COLORS[i-1] || 0xffffff });
-        COLLECTION_DATA.push({ id: 'alien', name: 'Vaca Alien', color: 0x00ffff }); COLLECTION_DATA.push({ id: 'flood', name: 'Vaca Inundação', color: 0x0055ff });
-        COLLECTION_DATA.push({ id: 'chicken', name: 'Galinha Pet', color: 0xffffff });
+        // 20 vacas, valor dobra a cada nível, começando em 300
+        const COW_VALUES = [0];
+        for (let i = 1, v = 300; i <= 20; i++, v *= 2) COW_VALUES[i] = v;
+        for(let i=1; i<=20; i++) COLLECTION_DATA.push({
+            id: i,
+            name: 'Vaca Nv.'+i,
+            color: COW_COLORS[(i-1)%COW_COLORS.length] || 0xffffff,
+            value: COW_VALUES[i]
+        });
+        COLLECTION_DATA.push({ id: 'alien', name: 'Vaca Alien', color: 0x00ffff, value: 500000 });
+        COLLECTION_DATA.push({ id: 'flood', name: 'Vaca Inundação', color: 0x0055ff, value: 100000 });
+        COLLECTION_DATA.push({ id: 'chicken', name: 'Galinha Pet', color: 0xffffff, value: null });
 
         function drawCowThumb(canvas, color, isAlien) {
             const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,64,64); ctx.fillStyle = '#' + color.toString(16).padStart(6, '0');
@@ -852,6 +872,10 @@
                     else if(c.id === 'alien') text = "Sobreviva à queda do Meteoro e clique nele 100 vezes para o quebrar.";
                     else if(c.id === 'flood') text = "Sobreviva à Inundação. A vaca aparecerá para drenar a água.";
                     else if(c.id === 'chicken') text = "Exploda 5 galinhas durante 'A fuga das galinhas'. Ela recolhe fezes com bônus de 30%!";
+                    // Adiciona valor da vaca, se aplicável
+                    if (typeof c.value === 'number') {
+                        text += `<br><span style="color:#ffd700;font-size:13px;">Valor: $${abbreviate(c.value)}</span>`;
+                    }
                     tooltip.innerHTML = `<strong>${c.name}</strong><br><span style="font-size:12px; opacity:0.8;">${text}</span>`;
                     SFX.pop();
                 });
@@ -869,6 +893,15 @@
                 card.appendChild(canvas);
                 let title = document.createElement('p'); title.innerText = isUnlocked ? c.name : '???'; card.appendChild(title);
                 let lvl = document.createElement('span'); lvl.className = 'level'; lvl.innerText = typeof c.id === 'number' ? `Level ${c.id}` : 'Evento'; card.appendChild(lvl);
+                // Mostra valor na card se não for evento
+                if (typeof c.value === 'number') {
+                    let val = document.createElement('span');
+                    val.style.fontSize = '11px';
+                    val.style.color = '#ffd700';
+                    val.style.marginTop = '2px';
+                    val.innerText = `Valor: $${abbreviate(c.value)}`;
+                    card.appendChild(val);
+                }
                 grid.appendChild(card);
             });
         }
@@ -1109,7 +1142,7 @@
             if (typeof meteor !== 'undefined' && meteor.active) return;
 
             // Nível 1: 0-49 vacas | Nível 2: 50-99 vacas | Nível 3: 100-149...
-            const novoNivel = Math.max(1, Math.floor(cows.length / 50) + 1);
+            const novoNivel = Math.max(1, Math.floor(cows.length / 20) + 1);
 
             if (novoNivel !== currentIslandLevel) {
                 const ampliou = novoNivel > currentIslandLevel;
@@ -1211,8 +1244,8 @@
                         let dx = 0 - c.position.x;
                         let dz = -20 - c.position.z;
                         let dist2D = Math.sqrt(dx*dx + dz*dz);
-                        if (dist2D > 2) { 
-                            allReturned = false; 
+                        if (dist2D > 2) {
+                            allReturned = false;
                             let angle = Math.atan2(dx, dz);
                             let diff = angle - c.rotation.y;
                             while(diff < -Math.PI) diff += Math.PI * 2;
@@ -1509,6 +1542,7 @@
         }
 
         setInterval(() => {
+            // Soma o valor de cada vaca individualmente
             let income = cows.reduce((sum, c) => sum + getCowIncome(c), 0);
             if (income > 0) { 
                 money += income; updateUI(); 
