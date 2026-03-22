@@ -129,13 +129,23 @@
         .cow-card { 
             background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 12px; 
             padding: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            transition: all 0.3s; 
+            transition: all 0.3s; cursor: pointer;
         }
         .cow-card canvas { width: 64px; height: 64px; margin-bottom: 8px; }
         .cow-card.locked canvas { filter: brightness(0) blur(2px); opacity: 0.5; }
         .cow-card.locked p { opacity: 0.5; }
         .cow-card p { margin: 0; font-size: 12px; font-weight: bold; color: var(--text-main); }
         .cow-card .level { font-size: 10px; color: var(--text-muted); }
+
+        /* Tooltip Coleção */
+        #collection-tooltip {
+            position: fixed; bottom: 25%; left: 50%; transform: translateX(-50%);
+            background: rgba(20, 30, 40, 0.95); backdrop-filter: blur(10px);
+            border: 1px solid var(--accent); color: white;
+            padding: 15px 20px; border-radius: 12px; font-size: 14px; text-align: center;
+            z-index: 150; pointer-events: none; display: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 300px;
+        }
 
     </style>
     <script type="importmap">
@@ -150,6 +160,8 @@
 <body>
 
     <div id="screen-flash"></div>
+
+    <div id="collection-tooltip"></div>
 
     <div id="start-screen" style="pointer-events: none;">
         <h1>MERGE COW 3D</h1>
@@ -400,7 +412,7 @@
                 osc.type = 'sawtooth';
                 osc.frequency.setValueAtTime(250, audioCtx.currentTime);
                 osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 1.0);
-                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.14, audioCtx.currentTime); // Reduzido em 30% (Era 0.2)
                 gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.0);
                 osc.connect(gain); gain.connect(listener.getInput()); osc.start(); osc.stop(audioCtx.currentTime + 1.0);
             },
@@ -410,6 +422,14 @@
                 const filter = audioCtx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 1000;
                 const gain = audioCtx.createGain(); gain.gain.setValueAtTime(0.3, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
                 source.connect(filter); filter.connect(gain); gain.connect(listener.getInput()); source.start();
+            },
+            pop: () => {
+                if(!window.sfxEnabled) return;
+                const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                osc.type = 'sine'; osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.connect(gain); gain.connect(listener.getInput()); osc.start(); osc.stop(audioCtx.currentTime + 0.1);
             }
         };
 
@@ -417,7 +437,7 @@
         // SISTEMA DE NUVEM (SUPABASE) - LEADERBOARD E CARREGAMENTO
         // ==========================================
         const SUPABASE_URL = "https://xjgdtwevqrrnorgzelrz.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhqZ2R0d2V2cXJybm9yZ3plbHJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMzk3ODAsImV4cCI6MjA4OTYxNTc4MH0.XGmwAxTNWghMRzTDMZvu5IXHmHy_7Xw54RjdPzqa-Dw"; // IMPORTANTE: Substitua pela sua chave Anon Public do Supabase!
+        const SUPABASE_KEY = "SUA_CHAVE_API_ANON_AQUI"; // IMPORTANTE: Substitua pela sua chave Anon Public do Supabase!
 
         let currentLBTab = 'money'; 
         let lbData = { money: [], cows: [] };
@@ -427,7 +447,6 @@
 
         async function loadGlobalLeaderboard() {
             try {
-                // Tabela Supabase: "leaderboard" com colunas (id, name, flag, score, type)
                 let res = await fetch(`${SUPABASE_URL}/rest/v1/leaderboard?select=*`, {
                     headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
                 });
@@ -722,7 +741,31 @@
         function renderCollection() {
             const grid = document.getElementById('collection-grid'); grid.innerHTML = '';
             COLLECTION_DATA.forEach(c => {
-                let card = document.createElement('div'); let isUnlocked = unlockedCows[c.id]; card.className = 'cow-card ' + (isUnlocked ? '' : 'locked');
+                let card = document.createElement('div'); 
+                let isUnlocked = unlockedCows[c.id]; 
+                card.className = 'cow-card ' + (isUnlocked ? '' : 'locked');
+                
+                let isEvent = c.id === 'alien' || c.id === 'flood';
+                if (isEvent) card.style.background = 'rgba(255, 255, 150, 0.2)'; // Cor de fundo evento
+                
+                card.addEventListener('mouseenter', () => {
+                    let tooltip = document.getElementById('collection-tooltip');
+                    tooltip.style.display = 'block';
+                    if(isEvent) {
+                        tooltip.style.borderColor = '#ffd700'; tooltip.style.backgroundColor = 'rgba(255, 255, 150, 0.2)'; tooltip.style.color = '#ffd700';
+                    } else {
+                        tooltip.style.borderColor = 'var(--accent)'; tooltip.style.backgroundColor = 'var(--glass-bg)'; tooltip.style.color = 'white';
+                    }
+                    let text = "";
+                    if(c.id === 1) text = "Compre na loja para obter esta vaca.";
+                    else if(typeof c.id === 'number') text = `Junte duas vacas de Nível ${c.id - 1} para obter esta.`;
+                    else if(c.id === 'alien') text = "Sobreviva à queda do Meteoro e clique nele 100 vezes para o quebrar.";
+                    else if(c.id === 'flood') text = "Sobreviva à Inundação. A vaca aparecerá para drenar a água.";
+                    tooltip.innerHTML = `<strong>${c.name}</strong><br><span style="font-size:12px; opacity:0.8;">${text}</span>`;
+                    SFX.pop();
+                });
+                card.addEventListener('mouseleave', () => { document.getElementById('collection-tooltip').style.display = 'none'; });
+
                 let canvas = document.createElement('canvas'); canvas.width=64; canvas.height=64; drawCowThumb(canvas, c.color, c.id==='alien'); card.appendChild(canvas);
                 let title = document.createElement('p'); title.innerText = isUnlocked ? c.name : '???'; card.appendChild(title);
                 let lvl = document.createElement('span'); lvl.className = 'level'; lvl.innerText = typeof c.id === 'number' ? `Level ${c.id}` : 'Evento'; card.appendChild(lvl);
@@ -757,6 +800,9 @@
             if (!nick) { alert("Por favor, digite um apelido para enviar sua pontuação!"); return; }
             if (nick.length > 5) nick = nick.substring(0, 5);
             
+            let typeName = currentLBTab === 'money' ? 'Fortuna' : 'Vacas Totais';
+            if (!confirm(`Atenção: Ao enviar sua pontuação, o seu progresso local desta aba (${typeName}) será resetado a zero. Deseja continuar?`)) return;
+
             let btn = document.querySelector('.lb-input-group button');
             btn.innerText = "ENVIANDO..."; btn.disabled = true;
 
@@ -861,7 +907,7 @@
         const ufoMat = new THREE.MeshStandardMaterial({color: 0x888888, metalness: 0.8, roughness: 0.2});
         const domeMat = new THREE.MeshPhysicalMaterial({color: 0x00ff00, transmission:0.8, opacity:1, transparent:true});
         const flood = { active: false, timer: 0, phase: 'none', clouds: [], rainParts: null, cow: null, isProtecting: false };
-        const waterGeo = new THREE.PlaneGeometry(100, 100, 16, 16); waterGeo.rotateX(-Math.PI/2);
+        const waterGeo = new THREE.PlaneGeometry(10000, 10000, 16, 16); waterGeo.rotateX(-Math.PI/2);
         const waterMat = new THREE.MeshPhysicalMaterial({color: 0x0055ff, transmission: 0.9, opacity: 0.8, transparent: true, roughness: 0.1});
         const waterMesh = new THREE.Mesh(waterGeo, waterMat); waterMesh.position.y = GROUND_LEVEL - 5; scene.add(waterMesh);
         const water = { level: GROUND_LEVEL - 5, targetLevel: GROUND_LEVEL - 5 };
@@ -886,7 +932,7 @@
 
         setInterval(() => {
             if (meteor.active || flood.active || ufoEvent.active) return;
-            if (Math.random() < 0.05) { startMeteorEvent(); } 
+            if (Math.random() < 0.05 && !unlockedCows['alien']) { startMeteorEvent(); } 
             else if (Math.random() < 0.1 && cows.length > 0) { startUFOEvent(); } 
             else if (Math.random() < 0.3) { startFloodEvent(); } 
             else if (Math.random() < 0.5 && cows.length > 0) { SFX.cough(); createFloatingText("*Cof*", cows[0].position.x, cows[0].position.z); }
@@ -921,7 +967,12 @@
         // ==========================================
         // ANIMAÇÃO CORE E FÍSICA
         // ==========================================
-        window.toggleAutoFuse = () => { autoFuseActive = !autoFuseActive; const btn = document.getElementById('btn-auto-fuse'); btn.innerText = autoFuseActive ? "🤖 Auto-Fuse: ON" : "🤖 Auto-Fuse: OFF"; btn.className = autoFuseActive ? "btn-primary" : ""; };
+        window.toggleAutoFuse = () => { 
+            autoFuseActive = !autoFuseActive; const btn = document.getElementById('btn-auto-fuse'); 
+            btn.innerText = autoFuseActive ? "🤖 Auto-Fuse: ON" : "🤖 Auto-Fuse: OFF"; 
+            if(autoFuseActive){ btn.style.backgroundColor = "rgba(0, 255, 0, 0.2)"; btn.style.borderColor = "#00e676"; btn.style.color = "#00e676"; } 
+            else { btn.style.backgroundColor = ""; btn.style.borderColor = ""; btn.style.color = ""; }
+        };
         const clock = new THREE.Clock();
 
         function animate() {
@@ -970,15 +1021,27 @@
 
             if (flood.active) {
                 flood.timer += delta;
+                flood.clouds.forEach(c => { c.position.x += delta * 5; if(c.position.x > 40) c.position.x = -40; });
+
                 if (flood.phase === 'clouds') { if (flood.timer < 3) { flood.clouds.forEach(c => { c.material.color.lerp(new THREE.Color(0x555555), delta); c.material.opacity = 0.7; }); } else { flood.phase = 'rain'; flood.rainParts.visible = true; rainSound.setVolume(0.5); } } 
                 else if (flood.phase === 'rain') { if (flood.timer > 28) { flood.phase = 'flood'; water.targetLevel = 5; } if (Math.random() < 0.01 && flood.timer % 5 < 0.1) { SFX.thunder(); document.getElementById('screen-flash').style.opacity = '0.5'; setTimeout(()=>document.getElementById('screen-flash').style.opacity='0', 100); } } 
-                else if (flood.phase === 'flood') { if (flood.timer > 50) { flood.phase = 'surf'; flood.cow = createVoxelCow(1, 40, 0, true, 'flood'); flood.cow.position.y = water.level; } } 
-                else if (flood.phase === 'surf') { flood.cow.position.lerp(new THREE.Vector3(0, water.level, 0), 0.05); if(flood.timer > 55) { flood.phase = 'drain'; water.targetLevel = GROUND_LEVEL - 5; } } 
-                else if (flood.phase === 'drain') { flood.cow.position.y = water.level; if(flood.timer > 60) { flood.active = false; flood.rainParts.visible = false; rainSound.setVolume(0); flood.clouds.forEach(c => scene.remove(c)); flood.clouds = []; flood.cow.position.y = GROUND_LEVEL; } } 
+                else if (flood.phase === 'flood') { 
+                    if (flood.timer > 50) { 
+                        flood.phase = 'drain'; 
+                        flood.cow = createVoxelCow(1, 0, 0, true, 'flood'); 
+                        flood.cow.position.y = GROUND_LEVEL; 
+                        water.targetLevel = GROUND_LEVEL - 5; 
+                    } 
+                } 
+                else if (flood.phase === 'drain') { 
+                    flood.cow.position.y = GROUND_LEVEL;
+                    flood.cow.userData.headGroup.rotation.x = Math.PI / 4; 
+                    if(flood.timer > 60) { flood.active = false; flood.rainParts.visible = false; rainSound.setVolume(0); flood.clouds.forEach(c => scene.remove(c)); flood.clouds = []; flood.cow.userData.headGroup.rotation.x = 0; } 
+                } 
                 else if (flood.phase === 'protect') {
                     if(flood.timer < 3) { flood.clouds.forEach(c => { c.material.color.lerp(new THREE.Color(0x555555), delta); }); }
-                    else if (flood.timer < 60) { flood.rainParts.visible = true; rainSound.setVolume(0.3); water.targetLevel = GROUND_LEVEL + 1.5; flood.cow.rotation.z = Math.PI; flood.cow.position.y = GROUND_LEVEL + 3; } 
-                    else { flood.active = false; flood.rainParts.visible = false; rainSound.setVolume(0); water.targetLevel = GROUND_LEVEL - 5; flood.clouds.forEach(c => scene.remove(c)); flood.clouds = []; flood.cow.rotation.z = 0; flood.cow.position.y = GROUND_LEVEL; }
+                    else if (flood.timer < 60) { flood.rainParts.visible = true; rainSound.setVolume(0.3); water.targetLevel = GROUND_LEVEL + 1.5; flood.cow.userData.headGroup.rotation.x = Math.PI / 4; flood.cow.position.y = GROUND_LEVEL; } 
+                    else { flood.active = false; flood.rainParts.visible = false; rainSound.setVolume(0); water.targetLevel = GROUND_LEVEL - 5; flood.clouds.forEach(c => scene.remove(c)); flood.clouds = []; flood.cow.userData.headGroup.rotation.x = 0; flood.cow.position.y = GROUND_LEVEL; }
                 }
 
                 water.level += (water.targetLevel - water.level) * delta * 0.5; waterMesh.position.y = water.level;
@@ -1006,11 +1069,19 @@
 
             cows.forEach(cow => {
                 if(!cow.userData.isDragging && !cow.userData.isUFOVictim) {
-                    cow.userData.timeAlive += delta; let cowBaseY = Math.max(GROUND_LEVEL, water.level);
-                    if(cow.position.y > cowBaseY && cow.userData.type !== 'flood') cow.position.y = Math.max(cowBaseY, cow.position.y - delta * 20); 
+                    cow.userData.timeAlive += delta; 
+                    let cowBaseY = Math.max(GROUND_LEVEL, water.level);
+                    if(cow.userData.type === 'flood') cowBaseY = GROUND_LEVEL; 
 
-                    if(water.level > GROUND_LEVEL + 0.5 && cow.userData.type !== 'flood') { cow.position.y = water.level + Math.sin(time*2 + cow.userData.id)*0.5; cow.rotation.z = Math.sin(time*3 + cow.userData.id)*0.1; } 
-                    else { if(cow.userData.type !== 'flood' || flood.phase !== 'protect') cow.rotation.z = 0; }
+                    if(cow.position.y > cowBaseY) cow.position.y = Math.max(cowBaseY, cow.position.y - delta * 20); 
+
+                    if(water.level > GROUND_LEVEL + 0.5 && cow.userData.type !== 'flood') { 
+                        cow.position.y = water.level + Math.sin(time*2 + cow.userData.id)*0.5; cow.rotation.z = Math.sin(time*3 + cow.userData.id)*0.1; 
+                    } 
+                    else { 
+                        cow.rotation.z = 0; 
+                        if(cow.userData.type === 'flood') cow.position.y = GROUND_LEVEL;
+                    }
 
                     if (cow.userData.isHungry && !cow.userData.isEating && !cow.userData.isFed && cow.userData.timeAlive >= cow.userData.eatTimeTarget) {
                         if (!autoFuseActive || !cow.userData.targetCow) {
@@ -1069,7 +1140,7 @@
                     } else if (!cow.userData.isEating) {
                         cow.userData.legs.forEach(l => l.rotation.x = 0); cow.userData.animGroup.position.y = 2.5 + Math.sin(time * 2 + cow.userData.id) * 0.05; 
                     }
-                    if (!cow.userData.isEating) cow.userData.headGroup.rotation.x = Math.sin(time * 1.5 + cow.userData.id) * 0.1;
+                    if (!cow.userData.isEating && !(cow.userData.type === 'flood' && flood.active)) cow.userData.headGroup.rotation.x = Math.sin(time * 1.5 + cow.userData.id) * 0.1;
                 }
             });
 
