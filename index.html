@@ -383,6 +383,7 @@
         // ==========================================
         let mergeCount = 0; let meteorDestroyed = false; let poopCollected = 0; 
         let totalChickensExploded = 0; let ufoCount = 0; let floodSurvived = 0; let playTimeSec = 0;
+        let wolfDefeatedCount = 0; let animalsEatenByWolf = 0; let sheepEatenByWolf = 0;
         let unlockedAchievements = JSON.parse(localStorage.getItem('MergeCow_Achievements')) || {};
 
         const ACHIEVEMENTS = [
@@ -412,6 +413,11 @@
             { id: 'flood_get', name: 'Aquática', icon: '💧', desc: 'Desbloqueie a vaca da Inundação', diff: 'hard', verify: () => !!unlockedCows['flood'] },
             { id: 'play_5', name: 'Passatempo', icon: '⌚', desc: 'Jogue por 5 minutos', diff: 'easy', verify: () => playTimeSec >= 300 },
             { id: 'play_30', name: 'Focado', icon: '🎮', desc: 'Jogue por 30 minutos', diff: 'medium', verify: () => playTimeSec >= 1800 },
+            { id: 'wolf_def_1', name: 'O Caçador', icon: '🐾', desc: 'Derrote o Lobo 1 vez', diff: 'easy', verify: () => wolfDefeatedCount >= 1 },
+            { id: 'wolf_eat_1', name: 'Lobo Mau', icon: '😭', desc: 'Deixe o Lobo devorar 1 animal', diff: 'easy', verify: () => animalsEatenByWolf >= 1 },
+            { id: 'wolf_def_5', name: 'Guardião Noturno', icon: '🛡️', desc: 'Derrote o Lobo 5 vezes', diff: 'medium', verify: () => wolfDefeatedCount >= 5 },
+            { id: 'wolf_sheep_1', name: 'Páscoa Sangrenta', icon: '🥩', desc: 'Deixe o Lobo devorar 1 ovelha', diff: 'medium', verify: () => sheepEatenByWolf >= 1 },
+            { id: 'wolf_eat_50', name: 'Massacre Selvagem', icon: '☠️', desc: 'O Lobo devorou 50 animais', diff: 'impossible', verify: () => animalsEatenByWolf >= 50 }
             // { id: 'island_2', name: 'Tijolos Além', icon: '🏗️', desc: 'Expanda sua Ilha 1 Vez', diff: 'medium', verify: () => currentIslandLevel >= 2 },
             // { id: 'island_3', name: 'Imperador de Ilhas', icon: '🏝️', desc: 'Expanda sua Ilha 2 Vezes', diff: 'hard', verify: () => currentIslandLevel >= 3 }
         ];
@@ -483,6 +489,7 @@
         window.applySkinToCow = (cow) => {
             if(cow.userData.type === 'alien' || cow.userData.type === 'flood') return;
             let baseColor = COW_COLORS[Math.min(cow.userData.level - 1, COW_COLORS.length - 1)];
+
 
             let isSheep = globalSkin === 'sheep'; 
             let isWater = globalSkin === 'water'; 
@@ -714,6 +721,7 @@
         let currentLBTab = 'money'; 
         let lbData = { money: [], cows: [] };
         let userFlag = "un"; 
+        let adminMode = false;
         
         fetch('https://get.geojs.io/v1/ip/country.json').then(res => res.json()).then(data => { if(data.country) userFlag = data.country.toLowerCase(); }).catch(e => {});
 
@@ -987,6 +995,7 @@
         function explodeWolfTarget(target) {
             target.parent?.remove(target);
             if(target.userData && typeof target.userData.id === 'number') {
+                sheepEatenByWolf++; animalsEatenByWolf++; checkAchievements();
                 SFX.pop(); 
                 const matDarkResp = new THREE.MeshBasicMaterial({color: 0xaa2222});
                 const parts = new THREE.Group();
@@ -997,6 +1006,7 @@
                 scene.add(parts); chickenParticles.push(parts);
                 cows = cows.filter(c => c !== target);
             } else {
+                animalsEatenByWolf++; checkAchievements();
                 explodeChicken(target);
                 if (target.userData.isPet) { petChickensCount = Math.max(0, petChickensCount - 1); petChickenGroup.remove(target); } 
                 else { chickenGroup.remove(target); }
@@ -1321,6 +1331,7 @@
                     wolfEvent.clicks++; SFX.click();
                     wolfEvent.mesh.scale.setScalar(1.2); setTimeout(()=> {if(wolfEvent.mesh) wolfEvent.mesh.scale.setScalar(1);}, 50);
                     if (wolfEvent.clicks >= 10) {
+                        wolfDefeatedCount++; checkAchievements();
                         createFloatingText("Derrotado!", wolfEvent.mesh.position.x, wolfEvent.mesh.position.z);
                         if (wolfEvent.phase === 'eating' && wolfEvent.target) {
                             let t = wolfEvent.target;
@@ -2031,7 +2042,7 @@
 
         function saveGame() {
             let data = cows.map(c => `${c.userData.level}|${c.position.x.toFixed(1)}|${c.position.z.toFixed(1)}|${c.userData.isFed ? 1 : 0}|${c.userData.type}`).join(";");
-            localStorage.setItem("MergeCow3D_Save", JSON.stringify({ money, totalCompras, totalSpawnedCows, petChickensCount, cows: data, mrg: mergeCount, mtd: meteorDestroyed, ppC: poopCollected, ckx: totalChickensExploded, ufo: ufoCount, fld: floodSurvived, pts: playTimeSec }));
+            localStorage.setItem("MergeCow3D_Save", JSON.stringify({ money, totalCompras, totalSpawnedCows, petChickensCount, cows: data, mrg: mergeCount, mtd: meteorDestroyed, ppC: poopCollected, ckx: totalChickensExploded, ufo: ufoCount, fld: floodSurvived, pts: playTimeSec, wDc: wolfDefeatedCount, aEw: animalsEatenByWolf, sEw: sheepEatenByWolf }));
         }
 
         function loadGame() {
@@ -2040,6 +2051,7 @@
                 money = saved.money || SALDO_INICIAL; totalCompras = saved.totalCompras || 0; totalSpawnedCows = saved.totalSpawnedCows || 0;
                 petChickensCount = saved.petChickensCount || 0;
                 mergeCount = saved.mrg || 0; meteorDestroyed = saved.mtd || false; poopCollected = saved.ppC || 0; totalChickensExploded = saved.ckx || 0; ufoCount = saved.ufo || 0; floodSurvived = saved.fld || 0; playTimeSec = saved.pts || 0;
+                wolfDefeatedCount = saved.wDc || 0; animalsEatenByWolf = saved.aEw || 0; sheepEatenByWolf = saved.sEw || 0;
                 for(let i=0; i<petChickensCount; i++) createVoxelChicken(true, (Math.random()-0.5)*4, -10.5);
                 if (saved.cows) {
                     saved.cows.split(";").forEach(c => {
@@ -2057,7 +2069,7 @@
 
         window.toggleShadows = () => { shadowsEnabled = !shadowsEnabled; renderer.shadowMap.enabled = shadowsEnabled; scene.traverse(child => { if(child.material) child.needsUpdate = true; }); document.getElementById('btn-shadows').innerText = shadowsEnabled ? "LIGADO" : "DESLIGADO"; document.getElementById('btn-shadows').style.color = shadowsEnabled ? "var(--accent)" : "#ff3333"; };
         window.toggleSFX = () => { window.sfxEnabled = !window.sfxEnabled; if(!window.sfxEnabled) { continuousSounds.forEach(s => s.pause()); } else if (audioContextStarted) { continuousSounds.forEach(s => s.play()); } let btn = document.getElementById('btn-sfx'); btn.innerText = window.sfxEnabled ? "LIGADO" : "DESLIGADO"; btn.style.color = window.sfxEnabled ? "var(--accent)" : "#ff3333"; };
-        window.hardResetGame = () => { if(confirm("ATENÇÃO: Isso deletará todas as vacas e o dinheiro permanentemente.")) { cows.forEach(c => cowGroup.remove(c)); cows = []; poopGroup.clear(); chickenGroup.clear(); petChickenGroup.clear(); money = SALDO_INICIAL; totalCompras = 0; totalSpawnedCows = 0; petChickensCount = 0; explodedChickens = 0; unlockedCows = {1:true}; mergeCount=0; meteorDestroyed=false; poopCollected=0; totalChickensExploded=0; ufoCount=0; floodSurvived=0; playTimeSec=0; unlockedAchievements={}; localStorage.removeItem('MergeCow_Collection'); localStorage.removeItem('MergeCow_Achievements'); updateUI(); document.getElementById('modal-settings').style.display='none'; } };
+        window.hardResetGame = () => { if(confirm("ATENÇÃO: Isso deletará todas as vacas e o dinheiro permanentemente.")) { cows.forEach(c => cowGroup.remove(c)); cows = []; poopGroup.clear(); chickenGroup.clear(); petChickenGroup.clear(); money = SALDO_INICIAL; totalCompras = 0; totalSpawnedCows = 0; petChickensCount = 0; explodedChickens = 0; unlockedCows = {1:true}; mergeCount=0; meteorDestroyed=false; poopCollected=0; totalChickensExploded=0; ufoCount=0; floodSurvived=0; playTimeSec=0; wolfDefeatedCount=0; animalsEatenByWolf=0; sheepEatenByWolf=0; unlockedAchievements={}; localStorage.removeItem('MergeCow_Collection'); localStorage.removeItem('MergeCow_Achievements'); updateUI(); document.getElementById('modal-settings').style.display='none'; } };
         window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
 
         // Adicionar funcionalidade para alterar dinheiro permanentemente
