@@ -1654,8 +1654,9 @@
                 } 
                 else if (flood.phase === 'protect') {
                     if(flood.timer < 3) { flood.clouds.forEach(c => { c.material.color.lerp(new THREE.Color(0x555555), delta); }); }
-                    else if (flood.timer < 60) { flood.rainParts.visible = true; rainSound.setVolume(0.3); water.targetLevel = GROUND_LEVEL + 1.5; flood.cow.userData.headGroup.rotation.x = Math.PI / 4; flood.cow.position.y = GROUND_LEVEL; } 
-                    else { flood.active = false; flood.rainParts.visible = false; rainSound.setVolume(0); water.targetLevel = GROUND_LEVEL - 5; flood.clouds.forEach(c => scene.remove(c)); flood.clouds = []; flood.cow.userData.headGroup.rotation.x = 0; flood.cow.position.y = GROUND_LEVEL; }
+                    else if (flood.timer < 50) { flood.rainParts.visible = true; rainSound.setVolume(0.3); water.targetLevel = GROUND_LEVEL + 1.5; flood.cow.userData.headGroup.rotation.x = Math.PI / 4; flood.cow.position.y = GROUND_LEVEL; } 
+                    else if (flood.timer < 60) { flood.rainParts.visible = false; rainSound.setVolume(0); water.targetLevel = GROUND_LEVEL - 5; }
+                    else { flood.active = false; flood.clouds.forEach(c => scene.remove(c)); flood.clouds = []; flood.cow.userData.headGroup.rotation.x = 0; flood.cow.position.y = GROUND_LEVEL; }
                 }
 
                 water.level += (water.targetLevel - water.level) * delta * 0.5; waterMesh.position.y = water.level;
