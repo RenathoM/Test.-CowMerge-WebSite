@@ -888,11 +888,13 @@
             const roof = new THREE.Mesh(new THREE.CylinderGeometry(9.5, 9.5, 17, 3), matRoof); roof.rotation.z = Math.PI / 2; roof.rotation.x = Math.PI / 2; roof.position.set(0, 14, 0); roof.castShadow = true; barn.add(roof);
             const matWhite = new THREE.MeshStandardMaterial({color: 0xffffff, flatShading: true});
             
-            // Portas Duplas (Pivot nas bordas)
-            const doorLGroup = new THREE.Group(); doorLGroup.position.set(-1.5, 3.75, 8.3);
-            const doorL = new THREE.Mesh(new THREE.BoxGeometry(3, 7.5, 0.6), matWood); doorL.position.set(1.5, 0, 0); doorLGroup.add(doorL); barn.add(doorLGroup);
-            const doorRGroup = new THREE.Group(); doorRGroup.position.set(1.5, 3.75, 8.3);
-            const doorR = new THREE.Mesh(new THREE.BoxGeometry(3, 7.5, 0.6), matWood); doorR.position.set(-1.5, 0, 0); doorRGroup.add(doorR); barn.add(doorRGroup);
+            // Portas Duplas (Pivot nas bordas corrigido para abertura 90 graus)
+            const doorLGroup = new THREE.Group(); doorLGroup.position.set(-4, 3.75, 8.3);
+            const doorL = new THREE.Mesh(new THREE.BoxGeometry(4, 7.5, 0.6), matWood); doorL.position.set(2, 0, 0); doorLGroup.add(doorL); barn.add(doorLGroup);
+            
+            const doorRGroup = new THREE.Group(); doorRGroup.position.set(4, 3.75, 8.3);
+            const doorR = new THREE.Mesh(new THREE.BoxGeometry(4, 7.5, 0.6), matWood); doorR.position.set(-2, 0, 0); doorRGroup.add(doorR); barn.add(doorRGroup);
+            
             window.barnDoors = { left: doorLGroup, right: doorRGroup, openAmount: 0 };
 
             const loftFrame = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 0.5), matWhite); loftFrame.position.set(0, 10, 8.1); barn.add(loftFrame);
