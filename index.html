@@ -270,6 +270,7 @@
                         <button id="btn-ev-ufo" class="btn-primary" style="font-size: 12px; padding: 8px 15px; border-color: #ffd700; color: #ffd700;">OVNI</button>
                         <button id="btn-ev-chicken" class="btn-primary" style="font-size: 12px; padding: 8px 15px; border-color: #ffaa00; color: #ffaa00;">Galinhas</button>
                         <button id="btn-ev-meteor" class="btn-primary" style="background: rgba(255,50,50,0.2); border-color: #ff3333; color: #ff3333; font-size: 12px; padding: 8px 15px;">Meteoro</button>
+                        <button id="btn-ev-wolf" class="btn-primary" style="background: rgba(120,50,255,0.2); border-color: #aa00ff; color: #aa00ff; font-size: 12px; padding: 8px 15px;">Lobo (Noite)</button>
                     </div>
 
                     <!-- NOVO: ALTERAR DINHEIRO LOCAL -->
@@ -685,6 +686,20 @@
                 const filter = audioCtx.createBiquadFilter(); filter.type = 'highpass'; filter.frequency.value = 1000;
                 const gain = audioCtx.createGain(); gain.gain.setValueAtTime(0.3, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
                 source.connect(filter); filter.connect(gain); gain.connect(listener.getInput()); source.start();
+            },
+            wolfHowl: () => {
+                if(!window.sfxEnabled) return;
+                const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(400, audioCtx.currentTime + 1.0);
+                osc.frequency.setValueAtTime(400, audioCtx.currentTime + 1.0);
+                osc.frequency.linearRampToValueAtTime(150, audioCtx.currentTime + 3.0);
+                const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 600;
+                gain.gain.setValueAtTime(0, audioCtx.currentTime); 
+                gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 1.0);
+                gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 3.0);
+                osc.connect(filter); filter.connect(gain); gain.connect(listener.getInput());
+                osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 3.0);
             }
         };
 
@@ -863,6 +878,7 @@
             const poop = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5, 0), matPoop);
             let backX = cow.position.x - Math.sin(cow.rotation.y) * 2; let backZ = cow.position.z - Math.cos(cow.rotation.y) * 2;
             poop.position.set(backX, cow.position.y + 0.2, backZ); poop.rotation.set(Math.random(), Math.random(), Math.random()); poop.castShadow = true;
+
             let currentIncome = cow.userData.isFed ? (INCOME_PER_LEVEL[cow.userData.level]||500) * 2 : (INCOME_PER_LEVEL[cow.userData.level]||500);
             if(cow.userData.type === 'alien') currentIncome = 500000; if(cow.userData.type === 'flood') currentIncome = 100000;
             poop.userData = { value: currentIncome * 3, type: 'poop' };
@@ -934,7 +950,67 @@
         const cowGroup = new THREE.Group(); scene.add(cowGroup);
         const chickenGroup = new THREE.Group(); scene.add(chickenGroup);
         const petChickenGroup = new THREE.Group(); scene.add(petChickenGroup);
+        const wolfGroup = new THREE.Group(); scene.add(wolfGroup);
         const chickenParticles = [];
+
+        function createVoxelWolf() {
+            const wolf = new THREE.Group();
+            wolf.position.set(0, GROUND_LEVEL, -20);
+            wolf.userData = { clicks: 0, velocity: 16, targetYRot: 0, animGroup: null, headGroup: null, legs: [] };
+            
+            const matDark = new THREE.MeshStandardMaterial({color: 0x222222, flatShading: true, roughness: 0.9});
+            const matRed = new THREE.MeshStandardMaterial({color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 0.8, flatShading: true});
+            
+            const animGroup = new THREE.Group(); animGroup.position.y = 1.2; wolf.add(animGroup);
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 2.8), matDark); body.castShadow = true; animGroup.add(body);
+            const fluff = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 1.2), matDark); fluff.position.set(0, 0.2, 0.8); fluff.castShadow = true; animGroup.add(fluff);
+            
+            const headGroup = new THREE.Group(); headGroup.position.set(0, 0.8, 1.4); animGroup.add(headGroup);
+            const head = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), matDark); head.castShadow = true; headGroup.add(head);
+            const snout = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 1.0), matDark); snout.position.set(0, -0.2, 1.1); headGroup.add(snout);
+            const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.2,0.2,0.1), matRed); eyeL.position.set(0.35,0.2,0.65); headGroup.add(eyeL);
+            const eyeR = new THREE.Mesh(new THREE.BoxGeometry(0.2,0.2,0.1), matRed); eyeR.position.set(-0.35,0.2,0.65); headGroup.add(eyeR);
+            const earL = new THREE.Mesh(new THREE.BoxGeometry(0.2,0.6,0.2), matDark); earL.position.set(0.4, 0.8, -0.2); headGroup.add(earL);
+            const earR = new THREE.Mesh(new THREE.BoxGeometry(0.2,0.6,0.2), matDark); earR.position.set(-0.4, 0.8, -0.2); headGroup.add(earR);
+            
+            const tail = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 1.4), matDark); tail.position.set(0, 0.2, -1.8); animGroup.add(tail);
+            wolf.userData.tail = tail;
+
+            const createLeg = (x, z) => { const legGroup = new THREE.Group(); legGroup.position.set(x, 0.6, z); const leg = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.2, 0.4), matDark); leg.castShadow=true; legGroup.add(leg); wolf.add(legGroup); return legGroup; };
+            wolf.userData.legs = [ createLeg(0.6, 1.0), createLeg(-0.6, 1.0), createLeg(0.6, -1.0), createLeg(-0.6, -1.0) ];
+            
+            wolf.userData.animGroup = animGroup; wolf.userData.headGroup = headGroup;
+            wolfGroup.add(wolf);
+            return wolf;
+        }
+
+        function explodeWolfTarget(target) {
+            target.parent?.remove(target);
+            if(target.userData && typeof target.userData.id === 'number') {
+                SFX.pop(); 
+                const matDarkResp = new THREE.MeshBasicMaterial({color: 0xaa2222});
+                const parts = new THREE.Group();
+                for(let i=0; i<15; i++) {
+                    const p = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), matDarkResp); p.position.copy(target.position); p.position.y += 2;
+                    p.userData = { vx: (Math.random()-0.5)*10, vy: Math.random()*10 + 5, vz: (Math.random()-0.5)*10, rot: Math.random()*0.5 }; parts.add(p);
+                }
+                scene.add(parts); chickenParticles.push(parts);
+                cows = cows.filter(c => c !== target);
+            } else {
+                explodeChicken(target);
+                if (target.userData.isPet) { petChickensCount = Math.max(0, petChickensCount - 1); petChickenGroup.remove(target); } 
+                else { chickenGroup.remove(target); }
+            }
+        }
+
+        function findWolfTarget() {
+            let possibleTargets = [...chickenGroup.children, ...petChickenGroup.children];
+            if (wolfEvent.isSheepMode) possibleTargets = possibleTargets.concat(cows.filter(c => c.userData.type === 'normal'));
+            if (possibleTargets.length === 0) return null;
+            let nearest = null; let minDist = Infinity;
+            possibleTargets.forEach(t => { let d = wolfEvent.mesh.position.distanceTo(t.position); if (d < minDist) { minDist = d; nearest = t; } });
+            return nearest;
+        }
 
         function createVoxelChicken(isPet = false, px, pz) {
             const chicken = new THREE.Group();
@@ -1198,7 +1274,7 @@
             lbData[tab].forEach((entry, idx) => {
                 let row = document.createElement('div'); row.style.display = 'flex'; row.style.gap = '5px'; row.style.alignItems = 'center'; row.style.justifyContent = 'space-between';
                 let nameSpan = document.createElement('span'); nameSpan.style.width = '60px'; nameSpan.style.overflow = 'hidden'; nameSpan.style.fontSize = '12px'; nameSpan.style.color = 'white'; nameSpan.innerText = entry.name;
-                let inputScore = document.createElement('input'); inputScore.type = 'number'; inputScore.value = entry.score; inputScore.style.width = '70px'; inputScore.style.background = 'rgba(0,0,0,0.5)'; inputScore.style.color = 'var(--accent)'; inputScore.style.border = '1px solid var(--glass-border)'; inputScore.style.borderRadius = '4px'; inputScore.style.padding = '2px 5px';
+                let inputScore = document.createElement('input'); inputScore.type = 'number'; inputScore.value = entry.score; inputScore.style.width = '70px'; inputScore.style.background = 'rgba(0,0,0,0.5)'; inputScore.style.color = 'var(--accent)'; inputScore.style.border = '1px solid var(--accent)'; inputScore.style.borderRadius = '4px'; inputScore.style.padding = '2px 5px';
                 
                 let btnSave = document.createElement('button'); btnSave.innerHTML = '💾'; btnSave.title = "Salvar"; btnSave.style.padding = '2px 5px'; btnSave.style.background = 'transparent'; btnSave.style.border = 'none'; btnSave.style.cursor = 'pointer';
                 btnSave.onclick = async () => {
@@ -1238,6 +1314,25 @@
             if(event.button !== 0 || event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT' || event.target.tagName === 'SELECT' || event.target.closest('#event-panel')) return;
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1; mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
             raycaster.setFromCamera(mouse, camera);
+
+            if (wolfEvent.active && wolfEvent.mesh) {
+                let intersectsWolf = raycaster.intersectObject(wolfEvent.mesh, true);
+                if (intersectsWolf.length > 0) {
+                    wolfEvent.clicks++; SFX.click();
+                    wolfEvent.mesh.scale.setScalar(1.2); setTimeout(()=> {if(wolfEvent.mesh) wolfEvent.mesh.scale.setScalar(1);}, 50);
+                    if (wolfEvent.clicks >= 10) {
+                        createFloatingText("Derrotado!", wolfEvent.mesh.position.x, wolfEvent.mesh.position.z);
+                        if (wolfEvent.phase === 'eating' && wolfEvent.target) {
+                            let t = wolfEvent.target;
+                            let worldPos = new THREE.Vector3(); t.getWorldPosition(worldPos);
+                            t.parent.remove(t); t.position.copy(worldPos); t.scale.set(1,1,1); t.position.y = GROUND_LEVEL;
+                            if(t.userData.isPet) petChickenGroup.add(t); else if(typeof t.userData.id === 'undefined') chickenGroup.add(t); else cowGroup.add(t);
+                        }
+                        wolfEvent.phase = 'defeated'; 
+                    }
+                    return;
+                }
+            }
             
             if (meteor.mesh && meteor.phase === 'landed') {
                 let intersectsMeteor = raycaster.intersectObject(meteor.mesh);
@@ -1295,9 +1390,8 @@
         // OBJETOS DOS EVENTOS E CONTROLES UI
         // ==========================================
         const meteor = { active: false, timer: 0, phase: 'none', clicks: 0, mesh: null, fireParts: [] };
+        const wolfEvent = { active: false, timer: 0, phase: 'none', clicks: 0, target: null, eatTimer: 0, isSheepMode: false, mesh: null, ambientTransition: 0, spawnWolf: false };
         const ufoEvent = { active: false, timer: 0, phase: 'none', ufoGroup: null, beam: null, targetCow: null };
-        const ufoMat = new THREE.MeshStandardMaterial({color: 0x888888, metalness: 0.8, roughness: 0.2});
-        const domeMat = new THREE.MeshPhysicalMaterial({color: 0x00ff00, transmission:0.8, opacity:1, transparent:true});
         const flood = { active: false, timer: 0, phase: 'none', clouds: [], rainParts: null, cow: null, isProtecting: false };
         const chickenEvent = { active: false, timer: 0, phase: 'none' };
         
@@ -1318,22 +1412,39 @@
         });
 
         function triggerManualEvent(startFunc) {
-            if (meteor.active || ufoEvent.active || flood.active || chickenEvent.active) return;
-            setTimeout(() => { if (!meteor.active && !ufoEvent.active && !flood.active && !chickenEvent.active) startFunc(); }, 1000); 
+            if (meteor.active || ufoEvent.active || flood.active || chickenEvent.active || wolfEvent.active) return;
+            setTimeout(() => { if (!meteor.active && !ufoEvent.active && !flood.active && !chickenEvent.active && !wolfEvent.active) startFunc(); }, 1000); 
         }
 
         document.getElementById('btn-ev-meteor').addEventListener('click', () => triggerManualEvent(startMeteorEvent)); 
+        document.getElementById('btn-ev-wolf').addEventListener('click', () => triggerManualEvent(startWolfEvent));
         document.getElementById('btn-ev-ufo').addEventListener('click', () => triggerManualEvent(startUFOEvent)); 
         document.getElementById('btn-ev-flood').addEventListener('click', () => triggerManualEvent(startFloodEvent));
         document.getElementById('btn-ev-chicken').addEventListener('click', () => triggerManualEvent(startChickenEvent));
 
         setInterval(() => {
-            if (meteor.active || flood.active || ufoEvent.active || chickenEvent.active) return;
+            if (meteor.active || flood.active || ufoEvent.active || chickenEvent.active || wolfEvent.active) return;
             if (Math.random() < 0.05 && !unlockedCows['alien']) { startMeteorEvent(); } 
             else if (Math.random() < 0.3 && cows.length > 0) { startUFOEvent(); } 
             else if (Math.random() < 0.2) { startFloodEvent(); } 
             else if (Math.random() < 0.1 && cows.length > 0) { SFX.cough(); createFloatingText("*Cof*", cows[0].position.x, cows[0].position.z); }
         }, 60000);
+
+        setInterval(() => {
+            // A cada 10 minutos tentaremos invocar o Lobo, se não tiver outro evento correndo
+            if (!meteor.active && !ufoEvent.active && !flood.active && !chickenEvent.active && !wolfEvent.active) {
+                startWolfEvent();
+            }
+        }, 600000); 
+
+        function startWolfEvent() {
+            wolfEvent.active = true; wolfEvent.timer = 0; wolfEvent.ambientTransition = 0;
+            wolfEvent.isSheepMode = (globalSkin === 'sheep'); wolfEvent.clicks = 0; wolfEvent.target = null;
+            let possibleTargets = [...chickenGroup.children, ...petChickenGroup.children];
+            if (wolfEvent.isSheepMode) possibleTargets = possibleTargets.concat(cows.filter(c => c.userData.type === 'normal'));
+            wolfEvent.spawnWolf = possibleTargets.length > 0; wolfEvent.phase = 'night_falling';
+            SFX.wolfHowl();
+        }
 
         function startMeteorEvent() { if(unlockedCows['alien']) return; meteor.active = true; meteor.timer = 0; meteor.phase = 'pre1'; meteor.clicks = 0; windMat.color.setHex(0x00ff00); }
 
@@ -1473,6 +1584,109 @@
                 });
             }
 
+            if (wolfEvent.active) {
+                wolfEvent.timer += delta;
+                
+                const daySky = originalFogColor; const nightSky = new THREE.Color(0x000511);
+                const dayLight = 0xffffff; const nightLight = 0x88bbff;
+                
+                if (wolfEvent.timer < 3) wolfEvent.ambientTransition = Math.min(1, wolfEvent.ambientTransition + delta * 0.5);
+                else if (wolfEvent.timer > 57) wolfEvent.ambientTransition = Math.max(0, wolfEvent.ambientTransition - delta * 0.5);
+                
+                scene.background.lerpColors(daySky, nightSky, wolfEvent.ambientTransition);
+                scene.fog.color.copy(scene.background);
+                dirLight.color.lerpColors(new THREE.Color(dayLight), new THREE.Color(nightLight), wolfEvent.ambientTransition);
+                dirLight.intensity = 1.2 - (wolfEvent.ambientTransition * 1.0); 
+                hemiLight.intensity = 0.5 - (wolfEvent.ambientTransition * 0.3); 
+                
+                if (wolfEvent.timer < 60) {
+                    if (wolfEvent.spawnWolf && wolfEvent.phase === 'night_falling') {
+                        wolfEvent.phase = 'barn_opening';
+                    } else if (wolfEvent.phase === 'barn_opening') {
+                        window.barnDoors.openAmount = Math.min(1, window.barnDoors.openAmount + delta * 2);
+                        window.barnDoors.left.rotation.y = -window.barnDoors.openAmount * (Math.PI / 2 * 0.9);
+                        window.barnDoors.right.rotation.y = window.barnDoors.openAmount * (Math.PI / 2 * 0.9);
+                        if (window.barnDoors.openAmount >= 1) {
+                            if (!wolfEvent.mesh) wolfEvent.mesh = createVoxelWolf();
+                            wolfEvent.mesh.position.set(0, GROUND_LEVEL, -20);
+                            wolfEvent.phase = 'hunting';
+                        }
+                    } else if (wolfEvent.phase === 'hunting') {
+                        if (!wolfEvent.target || !wolfEvent.target.parent) wolfEvent.target = findWolfTarget();
+                        if (wolfEvent.target) {
+                            let w = wolfEvent.mesh; let t = wolfEvent.target;
+                            let dir = new THREE.Vector3().subVectors(t.position, w.position);
+                            dir.y = 0; let dist = dir.length();
+                            if (dist < 2.5) {
+                                wolfEvent.phase = 'eating'; wolfEvent.eatTimer = 3.0;
+                                t.position.set(0, -0.2, 1.4); t.rotation.set(0,0,0);
+                                w.userData.headGroup.add(t);
+                                if(t.userData) t.userData.velocity = 0;
+                            } else {
+                                dir.normalize(); let targetAngle = Math.atan2(dir.x, dir.z);
+                                let dAngle = targetAngle - w.rotation.y;
+                                while(dAngle < -Math.PI) dAngle += Math.PI * 2; while(dAngle > Math.PI) dAngle -= Math.PI * 2;
+                                w.rotation.y += dAngle * delta * 5; w.position.addScaledVector(dir, w.userData.velocity * delta);
+                            }
+                        } else {
+                            wolfEvent.phase = 'returning';
+                        }
+                    } else if (wolfEvent.phase === 'eating') {
+                        wolfEvent.eatTimer -= delta;
+                        let w = wolfEvent.mesh; let t = wolfEvent.target;
+                        w.userData.headGroup.rotation.z = Math.sin(time * 30) * 0.5; w.userData.headGroup.rotation.x = -Math.PI/6; 
+                        if (wolfEvent.eatTimer <= 1.0 && t.parent) {
+                            let worldPos = new THREE.Vector3(); t.getWorldPosition(worldPos);
+                            t.parent.remove(t); t.position.copy(worldPos); t.scale.set(1,1,1);
+                            explodeWolfTarget(t); updateUI();
+                        }
+                        if (wolfEvent.eatTimer <= 0) {
+                            w.userData.headGroup.rotation.z = 0; w.userData.headGroup.rotation.x = 0;
+                            wolfEvent.target = null; wolfEvent.phase = 'hunting';
+                        }
+                    } else if (wolfEvent.phase === 'returning' || wolfEvent.phase === 'defeated') {
+                        let w = wolfEvent.mesh;
+                        if (w) {
+                            let barnPos = new THREE.Vector3(0, GROUND_LEVEL, -20);
+                            let dir = new THREE.Vector3().subVectors(barnPos, w.position);
+                            dir.y = 0; let dist = dir.length();
+                            if (dist < 1.5 || wolfEvent.phase === 'defeated') {
+                                wolfGroup.remove(w); wolfEvent.mesh = null;
+                            } else {
+                                dir.normalize(); let targetAngle = Math.atan2(dir.x, dir.z);
+                                let dAngle = targetAngle - w.rotation.y;
+                                while(dAngle < -Math.PI) dAngle += Math.PI * 2; while(dAngle > Math.PI) dAngle -= Math.PI * 2;
+                                w.rotation.y += dAngle * delta * 5; w.position.addScaledVector(dir, w.userData.velocity * delta);
+                            }
+                        }
+                    }
+                } else if (wolfEvent.timer > 60) {
+                    window.barnDoors.openAmount = Math.max(0, window.barnDoors.openAmount - delta * 2);
+                    window.barnDoors.left.rotation.y = -window.barnDoors.openAmount * (Math.PI / 2 * 0.9);
+                    window.barnDoors.right.rotation.y = window.barnDoors.openAmount * (Math.PI / 2 * 0.9);
+                    if (window.barnDoors.openAmount <= 0) {
+                        wolfEvent.active = false; wolfEvent.phase = 'none';
+                        scene.background.copy(daySky); scene.fog.color.copy(daySky);
+                        dirLight.color.setHex(dayLight); dirLight.intensity = 1.2; hemiLight.intensity = 0.5;
+                        if(wolfEvent.mesh) { wolfGroup.remove(wolfEvent.mesh); wolfEvent.mesh = null; }
+                    }
+                }
+                
+                if (wolfEvent.mesh && wolfEvent.phase !== 'eating' && wolfEvent.phase !== 'defeated') {
+                    let w = wolfEvent.mesh;
+                    let speed = (wolfEvent.phase === 'hunting' || wolfEvent.phase === 'returning') ? w.userData.velocity : 0;
+                    if (speed > 0) {
+                        let legSwing = Math.sin(time * 25) * 0.7; 
+                        w.userData.legs.forEach((l, i) => l.rotation.x = (i%2===0)?legSwing:-legSwing); 
+                        w.userData.animGroup.position.y = 1.2 + Math.abs(Math.sin(time * 25)) * 0.3;
+                    } else {
+                        w.userData.legs.forEach(l => l.rotation.x = 0);
+                        w.userData.animGroup.position.y = 1.2 + Math.sin(time * 3) * 0.05;
+                    }
+                    w.userData.tail.rotation.x = Math.sin(time * 15) * 0.2 + 0.5;
+                }
+            }
+
             if (chickenEvent.active) {
                 chickenEvent.timer += delta;
                 if (chickenEvent.phase === 'opening') {
@@ -1571,7 +1785,8 @@
                         let nX = c.position.x + Math.sin(c.rotation.y) * c.userData.velocity * delta; let nZ = c.position.z + Math.cos(c.rotation.y) * c.userData.velocity * delta;
                         if (isColliding(nX, nZ)) { c.userData.targetYRot += Math.PI; c.userData.velocity = 0; } else { c.position.x = nX; c.position.z = nZ; }
                     }
-                } else {
+                    
+                    } else {
                     if(!c.userData.returning) {
                         c.userData.jumpTimer -= delta;
                         if(c.userData.jumpTimer <= 0) { c.userData.jumpTimer = 1.0; if(Math.random() < 0.3) { c.userData.isJumping = true; c.userData.jumpVy = 15; SFX.cluck(); } }
