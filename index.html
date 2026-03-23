@@ -1405,6 +1405,20 @@
         const ufoEvent = { active: false, timer: 0, phase: 'none', ufoGroup: null, beam: null, targetCow: null };
         const flood = { active: false, timer: 0, phase: 'none', clouds: [], rainParts: null, cow: null, isProtecting: false };
         const chickenEvent = { active: false, timer: 0, phase: 'none' };
+
+        const ufoMat = new THREE.MeshStandardMaterial({ color: 0x8ea2b8, metalness: 0.8, roughness: 0.25, flatShading: true });
+        const domeMat = new THREE.MeshPhysicalMaterial({ color: 0x66e6ff, transmission: 0.85, opacity: 0.85, transparent: true, roughness: 0.1 });
+        const ufoTargetPos = new THREE.Vector3();
+
+        function endUFOEvent() {
+            if (ufoEvent.targetCow?.userData) ufoEvent.targetCow.userData.isUFOVictim = false;
+            if (ufoEvent.beam) ufoEvent.beam.visible = false;
+            if (ufoEvent.ufoGroup) ufoEvent.ufoGroup.visible = false;
+            ufoEvent.active = false;
+            ufoEvent.phase = 'none';
+            ufoEvent.timer = 0;
+            ufoEvent.targetCow = null;
+        }
         
         const waterGeo = new THREE.PlaneGeometry(10000, 10000, 16, 16); waterGeo.rotateX(-Math.PI/2);
         const waterMat = new THREE.MeshPhysicalMaterial({color: 0x0055ff, transmission: 0.9, opacity: 0.8, transparent: true, roughness: 0.1});
@@ -1845,18 +1859,29 @@
             }
 
             if (ufoEvent.active) {
+                if (!ufoEvent.ufoGroup) { endUFOEvent(); }
+                else {
                 ufoEvent.timer += delta;
                 if (ufoEvent.phase === 'arrive') { let orbitX = Math.cos(time) * 15; let orbitZ = Math.sin(time) * 25; ufoEvent.ufoGroup.position.lerp(new THREE.Vector3(orbitX, 20, orbitZ), 0.05); if(ufoEvent.timer > 5) ufoEvent.phase = 'beam'; } 
                 else if (ufoEvent.phase === 'beam') {
-                    ufoEvent.ufoGroup.position.lerp(new THREE.Vector3(ufoEvent.targetCow.position.x, 20, ufoEvent.targetCow.position.z), 0.05);
-                    if(ufoEvent.ufoGroup.position.distanceTo(new THREE.Vector3(ufoEvent.targetCow.position.x, 20, ufoEvent.targetCow.position.z)) < 2) {
-                        ufoEvent.beam.visible = true; ufoEvent.targetCow.position.y += delta * 5; ufoEvent.targetCow.rotation.y += delta * 10; ufoEvent.targetCow.userData.legs.forEach(l => l.rotation.x = Math.sin(time*30));
-                        if(ufoEvent.timer % 1 < 0.1) SFX.moo();
-                        if(ufoEvent.targetCow.position.y > 18) { cowGroup.remove(ufoEvent.targetCow); cows = cows.filter(c => c !== ufoEvent.targetCow); ufoEvent.beam.visible = false; ufoEvent.phase = 'leave'; ufoEvent.timer = 0; ufoCount++; checkAchievements(); updateUI(); }
+                    if(!ufoEvent.targetCow || !cows.includes(ufoEvent.targetCow) || !ufoEvent.ufoGroup || !ufoEvent.beam) { endUFOEvent(); }
+                    else {
+                        ufoTargetPos.set(ufoEvent.targetCow.position.x, 20, ufoEvent.targetCow.position.z);
+                        ufoEvent.ufoGroup.position.lerp(ufoTargetPos, 0.05);
+                        if(ufoEvent.ufoGroup.position.distanceTo(ufoTargetPos) < 2) {
+                            ufoEvent.beam.visible = true; ufoEvent.targetCow.position.y += delta * 5; ufoEvent.targetCow.rotation.y += delta * 10; ufoEvent.targetCow.userData.legs.forEach(l => l.rotation.x = Math.sin(time*30));
+                            if(ufoEvent.timer % 1 < 0.1) SFX.moo();
+                            if(ufoEvent.targetCow.position.y > 18) {
+                                cowGroup.remove(ufoEvent.targetCow); cows = cows.filter(c => c !== ufoEvent.targetCow);
+                                ufoEvent.targetCow.userData.isUFOVictim = false;
+                                ufoEvent.beam.visible = false; ufoEvent.phase = 'leave'; ufoEvent.timer = 0; ufoCount++; checkAchievements(); updateUI();
+                            }
+                        }
                     }
                 } 
                 else if (ufoEvent.phase === 'leave') { let orbitX = Math.cos(time*2) * 15; let orbitZ = Math.sin(time*2) * 25; ufoEvent.ufoGroup.position.lerp(new THREE.Vector3(orbitX, 25, orbitZ), 0.1); if(ufoEvent.timer > 3) { ufoEvent.phase = 'supersonic'; } } 
-                else if (ufoEvent.phase === 'supersonic') { ufoEvent.ufoGroup.position.y += delta * 100; ufoEvent.ufoGroup.position.z -= delta * 100; ufoEvent.ufoGroup.scale.multiplyScalar(0.9); if(ufoEvent.ufoGroup.position.y > 200) ufoEvent.active = false; }
+                else if (ufoEvent.phase === 'supersonic') { ufoEvent.ufoGroup.position.y += delta * 100; ufoEvent.ufoGroup.position.z -= delta * 100; ufoEvent.ufoGroup.scale.multiplyScalar(0.9); if(ufoEvent.ufoGroup.position.y > 200) endUFOEvent(); }
+                }
             }
 
             if (flood.active) {
