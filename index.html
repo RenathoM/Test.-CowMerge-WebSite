@@ -1682,7 +1682,8 @@
             }
 
             cows.forEach(cow => {
-                if(!cow.userData.isDragging && !cow.userData.isUFOVictim) {
+                let isBeingBeamed = cow.userData.isUFOVictim && ufoEvent.active && ufoEvent.beam && ufoEvent.beam.visible;
+                if(!cow.userData.isDragging && !isBeingBeamed) {
                     cow.userData.timeAlive += delta; 
                     let cowBaseY = Math.max(GROUND_LEVEL, water.level);
                     if(cow.userData.type === 'flood') cowBaseY = GROUND_LEVEL; 
