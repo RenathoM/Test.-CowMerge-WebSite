@@ -86,6 +86,14 @@
         .btn-collection { background: rgba(255, 215, 0, 0.1); border-color: #ffd700; color: #ffd700; margin-top: 10px; width: 100%; }
         .btn-collection:hover { background: #ffd700; color: #000; box-shadow: 0 0 20px #ffd700; }
 
+        /* ==========================================
+           SIDEBAR MENU
+           ========================================== */
+        #sidebar-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1001; display: none; opacity: 0; transition: opacity 0.3s; pointer-events: auto; }
+        #sidebar-menu { position: fixed; top: 0; right: -280px; width: 240px; height: 100%; background: rgba(20, 30, 45, 0.98); backdrop-filter: blur(15px); border-left: 1px solid var(--accent); z-index: 1002; transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; padding: 60px 20px 20px; gap: 15px; box-shadow: -10px 0 30px rgba(0,0,0,0.5); pointer-events: auto; }
+        #sidebar-menu.open { right: 0; }
+        #sidebar-menu button { width: 100%; padding: 15px 20px; font-size: 15px; justify-content: center; text-align: center; }
+
         #controls-hint {
             position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%);
             background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); color: rgba(255,255,255,0.7);
@@ -179,12 +187,24 @@
         .diff-easy { color: #00e676; background: rgba(0,230,118,0.2); } .diff-medium { color: #ffc107; background: rgba(255,193,7,0.2); } .diff-hard { color: #ff5555; background: rgba(255,85,85,0.2); } .diff-impossible { color: #bf7fff; background: rgba(191,127,255,0.2); }
         .ach-desc { font-size: 10px; color: var(--text-muted); margin-top: 5px; }
 
+        /* ==========================================
+           SKINS SYSTEM
+           ========================================== */
+        #modal-skins { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); display: none; justify-content: center; align-items: center; z-index: 100; pointer-events: auto; }
+        .skins-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; margin-top: 20px; }
+        .skin-card { background: rgba(0,0,0,0.3); border: 2px solid var(--glass-border); border-radius: 12px; padding: 15px; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; }
+        .skin-card.locked { opacity: 0.5; filter: grayscale(100%); cursor: not-allowed; }
+        .skin-card:hover:not(.locked) { border-color: var(--accent); box-shadow: 0 0 10px var(--accent); }
+        .skin-card.active { border-color: #00e676; background: rgba(0, 230, 118, 0.2); box-shadow: 0 0 15px #00e676; }
+        .skin-req { font-size: 10px; color: #ffd700; margin-top: 8px; }
+
     </style>
     <script type="importmap">
         {
             "imports": {
                 "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+                "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/+esm"
             }
         }
     </script>
@@ -204,9 +224,32 @@
         </div>
     </div>
 
+    <!-- NOVO MODAL: SKINS -->
+    <div id="modal-skins" onclick="if(event.target===this)this.style.display='none'">
+        <div class="modal-content">
+            <h2>👕 SKINS & APARÊNCIA</h2>
+            <div id="skins-progress" style="color: var(--text-muted); font-size: 14px;"></div>
+            <div class="skins-grid" id="skins-grid"></div>
+            <div class="modal-buttons"><button onclick="document.getElementById('modal-skins').style.display='none'">Fechar</button></div>
+        </div>
+    </div>
+
     <div id="start-screen" style="pointer-events: none;">
         <h1>MERGE COW 3D</h1>
         <p id="start-text">CONECTANDO AO SERVIDOR GLOBAL...</p>
+    </div>
+
+    <!-- SIDEBAR HTML -->
+    <div id="sidebar-overlay" onclick="toggleSidebar(false)"></div>
+    <div id="sidebar-menu">
+        <h2 style="color: var(--accent); margin: 0 0 20px 0; font-weight: 300; letter-spacing: 2px; text-align: center; font-size: 22px;">MENU</h2>
+        
+        <button onclick="toggleSidebar(false); openCollection()" style="color: #ffd700; border-color: #ffd700;">📖 Coleção de Espécies</button>
+        <button onclick="toggleSidebar(false); openAchievements()" style="color: #ffd700; border-color: #ffd700;">🏅 Conquistas</button>
+        <button onclick="toggleSidebar(false); openSkins()" style="color: #ffaa00; border-color: #ffaa00;">👕 Skins</button>
+        <button onclick="toggleSidebar(false); openLeaderboard()">🏆 Leaderboard</button>
+        <hr style="border: 0; height: 1px; background: rgba(255,255,255,0.1); width: 100%; margin: 10px 0;">
+        <button onclick="toggleSidebar(false); document.getElementById('modal-settings').style.display='flex'">⚙️ Configurações</button>
     </div>
 
     <div id="ui-layer">
@@ -216,7 +259,6 @@
                 <span class="money">$<span id="money-display">200</span></span>
                 <span class="income">+ $<span id="income-display">0</span> / 1s</span>
                 <span class="total-cows">Vacas Spawnadas: <span id="cows-display">0</span></span>
-                <button class="btn-collection" onclick="openCollection()">📖 Coleção</button>
             </div>
 
             <div id="event-panel" class="glass-panel" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); pointer-events: auto; padding: 10px 20px; align-items: center; z-index: 50; transition: all 0.3s; min-width: 280px;">
@@ -248,11 +290,9 @@
                 </div>
             </div>
 
-            <div class="top-buttons">
-                <button onclick="document.getElementById('modal-settings').style.display='flex'">⚙️ Settings</button>
-                <button onclick="openLeaderboard()">🏆 Leaderboard</button>
-                <button onclick="openAchievements()" style="color: #ffd700; border-color: #ffd700;">🏅 Conquistas</button>
-                <button id="btn-auto-fuse" onclick="toggleAutoFuse()">🤖 Auto-Fuse: OFF</button>
+            <div class="top-buttons" style="flex-direction: row; align-items: flex-start; gap: 15px;">
+                <button id="btn-auto-fuse" onclick="toggleAutoFuse()" style="height: 48px; padding: 0 20px;">🤖 Auto-Fuse: OFF</button>
+                <button id="btn-menu" onclick="toggleSidebar(true)" style="height: 48px; font-size: 24px; padding: 0 15px;">☰</button>
             </div>
         </div>
         
@@ -317,6 +357,7 @@
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { createClient } from '@supabase/supabase-js';
 
         // ==========================================
         // LÓGICA CORE E DADOS
@@ -328,6 +369,13 @@
         let money = SALDO_INICIAL; let totalCompras = 0; let totalSpawnedCows = 0; let cows = []; let nextCowId = 1;
         let explodedChickens = 0; let petChickensCount = 0;
         let autoFuseActive = false; let shadowsEnabled = true;
+        let globalSkin = localStorage.getItem('MergeCow_Skin') || 'default'; // SKINS
+
+        window.toggleSidebar = (state) => {
+            const sb = document.getElementById('sidebar-menu'); const ov = document.getElementById('sidebar-overlay');
+            if(state) { sb.classList.add('open'); ov.style.display = 'block'; setTimeout(() => ov.style.opacity = '1', 10); SFX.click(); } 
+            else { sb.classList.remove('open'); ov.style.opacity = '0'; setTimeout(() => ov.style.display = 'none', 300); }
+        };
 
         // ==========================================
         // RASTREAMENTO DE CONQUISTAS
@@ -397,6 +445,66 @@
                 grid.appendChild(card);
             });
         }
+
+        // ==========================================
+        // SISTEMA DE SKINS
+        // ==========================================
+        window.openSkins = () => { document.getElementById('modal-skins').style.display='flex'; renderSkins(); };
+        window.selectSkin = (skin, req) => {
+            let unlCount = Object.keys(unlockedAchievements).length;
+            if(unlCount >= req) {
+                globalSkin = skin; localStorage.setItem('MergeCow_Skin', skin);
+                renderSkins(); updateAllSkins(); SFX.click();
+            } else { SFX.cough(); }
+        }
+        function renderSkins() {
+            let unlCount = Object.keys(unlockedAchievements).length;
+            const grid = document.getElementById('skins-grid'); grid.innerHTML = '';
+            const skins = [
+                {id:'default', name:'Normal', req:0, icon:'🐄', desc: 'Vaca bloco padrão'},
+                {id:'sheep', name:'Ovelha', req:10, icon:'🐑', desc: 'Modelo de ovelha gordinha'},
+                {id:'water', name:'Água', req:20, icon:'💧', desc: 'Física transmissive de água'},
+                {id:'lava', name:'Lava', req:25, icon:'🔥', desc: 'Pulsação vulcânica radiante'}
+            ];
+            skins.forEach(s => {
+                let unlocked = unlCount >= s.req; let active = globalSkin === s.id;
+                let classes = `skin-card ${unlocked?'':'locked'} ${active?'active':''}`;
+                grid.innerHTML += `<div class="${classes}" onclick="selectSkin('${s.id}', ${s.req})">
+                    <div style="font-size:32px;">${s.icon}</div>
+                    <div style="font-size:13px;font-weight:bold;margin-top:10px;">${s.name}</div>
+                    <div style="font-size:10px;opacity:0.7">${s.desc}</div>
+                    ${!unlocked ? `<div class="skin-req">Requer: ${s.req} Conquistas</div>` : (active ? `<div class="skin-req" style="color:#00e676; font-weight:bold;">Equipada</div>` : `<div class="skin-req">Desbloqueado</div>`)}
+                </div>`;
+            });
+            document.getElementById('skins-progress').innerText = `Conquistas Desbloqueadas: ${unlCount}/30`;
+        }
+
+        window.applySkinToCow = (cow) => {
+            if(cow.userData.type === 'alien' || cow.userData.type === 'flood') return;
+            let baseColor = COW_COLORS[Math.min(cow.userData.level - 1, COW_COLORS.length - 1)];
+
+            let isSheep = globalSkin === 'sheep'; 
+            let isWater = globalSkin === 'water'; 
+            let isLava = globalSkin === 'lava';
+
+            // Visibilidade do modelo
+            if(cow.userData.horns) cow.userData.horns.forEach(h => h.visible = !isSheep);
+            if(cow.userData.snout) cow.userData.snout.visible = !isSheep;
+            if(cow.userData.wool) cow.userData.wool.visible = isSheep;
+
+            // Definir novo material preservando a cor original
+            let newMat;
+            if (isWater) newMat = new THREE.MeshPhysicalMaterial({ color: baseColor, transmission: 0.9, opacity: 1, transparent: true, roughness: 0.1 });
+            else if (isLava) newMat = new THREE.MeshStandardMaterial({ color: baseColor, emissive: baseColor, emissiveIntensity: 0.8, roughness: 0.6 });
+            else newMat = new THREE.MeshStandardMaterial({ color: baseColor, roughness: 0.8, flatShading: true });
+            
+            // Aplicar
+            if(cow.userData.bodyMesh) cow.userData.bodyMesh.material = newMat;
+            if(cow.userData.headMesh) cow.userData.headMesh.material = newMat;
+            if(cow.userData.wool) cow.userData.wool.material = newMat;
+            if(cow.userData.legs) cow.userData.legs.forEach(l => l.children[0].material = newMat);
+        };
+        function updateAllSkins() { cows.forEach(c => applySkinToCow(c)); }
 
         setInterval(checkAchievements, 5000); // Check states that dont trigger via events
 
@@ -585,6 +693,8 @@
         // ==========================================
         const SUPABASE_URL = "https://xjgdtwevqrrnorgzelrz.supabase.co"; // IMPORTANTE: Substitua pela URL do seu projeto Supabase!
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhqZ2R0d2V2cXJybm9yZ3plbHJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMzk3ODAsImV4cCI6MjA4OTYxNTc4MH0.XGmwAxTNWghMRzTDMZvu5IXHmHy_7Xw54RjdPzqa-Dw"; // IMPORTANTE: Substitua pela sua chave Anon Public do Supabase!
+
+        const supabase = createClient(SUPABASE_URL, SUPABASE_KEY); // INICIALIZAÇÃO PARA USO REALTIME
 
         let currentLBTab = 'money'; 
         let lbData = { money: [], cows: [] };
@@ -881,6 +991,10 @@
 
             const animGroup = new THREE.Group(); animGroup.position.y = 2.5; cow.add(animGroup);
             const body = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2.2, 4.4), matBody); enableShadows(body); animGroup.add(body);
+            
+            // Camada Ovelha (Escondido por padrão)
+            const wool = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.6, 4.8), matBody); enableShadows(wool); wool.visible = false; animGroup.add(wool); 
+
             const headGroup = new THREE.Group(); headGroup.position.set(0, 0.5, 2.5); animGroup.add(headGroup);
             const head = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 1.6), matBody); enableShadows(head); headGroup.add(head);
 
@@ -893,11 +1007,17 @@
             const createLeg = (x, z) => { const legGroup = new THREE.Group(); legGroup.position.set(x, 0.7, z); const leg = new THREE.Mesh(legGeo, matBody); enableShadows(leg); legGroup.add(leg); const hoof = new THREE.Mesh(hoofGeo, matDark); hoof.position.y = -0.5; enableShadows(hoof); legGroup.add(hoof); cow.add(legGroup); return legGroup; };
             cow.userData.legs = [ createLeg(1, 1.5), createLeg(-1, 1.5), createLeg(1, -1.5), createLeg(-1, -1.5) ]; cow.userData.animGroup = animGroup; cow.userData.headGroup = headGroup;
 
+            // Salvar referências para trocar os materiais via Skins
+            cow.userData.bodyMesh = body; cow.userData.headMesh = head; cow.userData.horns = [hornL, hornR]; cow.userData.snout = snout; cow.userData.wool = wool;
+
             const stepSound = new THREE.PositionalAudio(listener); stepSound.setBuffer(grassStepBuffer); stepSound.setRefDistance(1.5); stepSound.setMaxDistance(10); stepSound.setVolume(0.3); cow.add(stepSound); cow.userData.stepSound = stepSound;
             cow.position.set(px, GROUND_LEVEL, pz); cow.rotation.y = cow.userData.targetYRot;
             
             if (isRestoredFed || type === 'alien' || type === 'flood') { let col = type==='alien'?0xffff00:(type==='flood'?0x00ffff:0xffffaa); addAura(cow, col); cow.userData.isHungry = false; cow.userData.isFed = true; }
-            cowGroup.add(cow); cows.push(cow); unlockCowInCollection(type === 'normal' ? level : type); return cow;
+            cowGroup.add(cow); cows.push(cow); unlockCowInCollection(type === 'normal' ? level : type); 
+            
+            applySkinToCow(cow); // <- Aplica skin imediatamente ao spawnar
+            return cow;
         }
 
         // ==========================================
@@ -1233,7 +1353,7 @@
             for(let i=0; i<5; i++) { let cm = new THREE.Mesh(cloudGeo, new THREE.MeshStandardMaterial({color: 0xffffff, transparent: true, opacity: 0.9})); cm.position.set((Math.random()-0.5)*40, 25 + Math.random()*5, (Math.random()-0.5)*40); cm.scale.set(1, 0.5, 1); scene.add(cm); flood.clouds.push(cm); }
             if(!flood.rainParts) {
                 const rGeo = new THREE.BufferGeometry(); const rPos = new Float32Array(2000 * 3);
-                for(let i=0; i<2000; i++) { rPos[i*3]=(Math.random()-0.5)*80; rPos[i*3+1]=Math.random()*40; rPos[i*3+2]=(Math.random()-0.5)*80; }
+                for(let i=0; i<2000; i++) { rPos[i*3]=(Math.random()-0.5)*80; rPos[i*3+1]=Math.random()*40; rPos[i*3+2]=(Math.random()-0.5) * 80; }
                 rGeo.setAttribute('position', new THREE.BufferAttribute(rPos, 3)); flood.rainParts = new THREE.Points(rGeo, new THREE.PointsMaterial({color: 0xaaaaff, size: 0.2, transparent: true, opacity: 0.6})); scene.add(flood.rainParts);
             }
             flood.rainParts.visible = false;
@@ -1339,6 +1459,17 @@
             requestAnimationFrame(animate);
             let delta = Math.min(clock.getDelta(), 0.1); let time = clock.getElapsedTime(); playTimeSec += delta;
             controls.update(); cows.forEach(c => c.userData.targetCow = null);
+
+            // ANIMAÇÃO ESPECÍFICA SKIN DE LAVA
+            if(globalSkin === 'lava') {
+                cows.forEach(c => {
+                    if (c.userData.bodyMesh && c.userData.bodyMesh.material && c.userData.bodyMesh.material.emissiveIntensity !== undefined) {
+                        let intensity = 0.5 + Math.sin(time * 5 + c.userData.id) * 0.4;
+                        c.userData.bodyMesh.material.emissiveIntensity = intensity;
+                        c.userData.headMesh.material.emissiveIntensity = intensity;
+                    }
+                });
+            }
 
             if (chickenEvent.active) {
                 chickenEvent.timer += delta;
@@ -1517,7 +1648,7 @@
                 else if (flood.phase === 'drain') { 
                     flood.cow.position.y = GROUND_LEVEL;
                     flood.cow.userData.headGroup.rotation.x = Math.PI / 4; 
-                    if(flood.timer > 60) { flood.active = false; flood.rainParts.visible = false; rainSound.setVolume(0); flood.clouds.forEach(c => scene.remove(c)); flood.clouds = []; flood.cow.userData.headGroup.rotation.x = 0; flood.cow.position.y = GROUND_LEVEL; floodSurvived++; checkAchievements(); } 
+                    if(flood.timer > 60) { flood.active = false; flood.rainParts.visible = false; rainSound.setVolume(0); flood.clouds.forEach(c => scene.remove(c)); flood.clouds = []; flood.cow.userData.headGroup.rotation.x = 0; flood.cow.position.y = GROUND_LEVEL; }
                 } 
                 else if (flood.phase === 'protect') {
                     if(flood.timer < 3) { flood.clouds.forEach(c => { c.material.color.lerp(new THREE.Color(0x555555), delta); }); }
@@ -1607,6 +1738,7 @@
                         cow.userData.poopTimer -= delta; let pTimeTarget = 30.0; 
                         if (cow.userData.poopTimer <= 0) { cow.userData.poopTimer = pTimeTarget; spawnPoop(cow); }
                         if(cow.userData.sparkles) {
+                           
                             let pArray = cow.userData.sparkles.geometry.attributes.position.array;
                             for(let i=0; i<20; i++) { pArray[i*3+1] += delta * 1.5; if(pArray[i*3+1] > 3.5) pArray[i*3+1] = 0; }
                             cow.userData.sparkles.geometry.attributes.position.needsUpdate = true;
@@ -1645,14 +1777,14 @@
                     }
                     _scale.set(scaleX, scaleY, scaleZ); _euler.set(rotX, rotY, rotZ);
                 }
-                _position.set(gd.x, GROUND_LEVEL, gd.z); _quaternion.setFromEuler(_euler);
+                _position.set(gd.x, GROUND_LEVEL, gd.z); _quaternion.setFromEuler(_euler); 
                 _dummy.matrix.compose(_position, _quaternion, _scale); grassInstanced.setMatrixAt(i, _dummy.matrix);
             }
             grassInstanced.instanceMatrix.needsUpdate = true;
 
             windLines.forEach(line => {
                 line.position.x += line.userData.speed * delta; line.position.y += Math.sin(time * 4 + line.userData.offset) * 0.02; line.position.z += Math.cos(time * 3 + line.userData.offset) * 0.02;
-                if (line.position.x > 40) { line.position.x = -40; line.position.z = (Math.random() - 0.5) * 80; line.position.y = 1.5 + Math.random() * 10; }
+                if (line.position.x > 40) { line.position.x = -40; line.position.y = 1.5 + Math.random() * 10; line.position.z = (Math.random() - 0.5) * 80; }
             });
 
             renderer.render(scene, camera);
