@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Merge Cow 3D - Voxel Edition</title>
     <style>
         /* ==========================================
@@ -23,6 +23,7 @@
             background-color: #0f172a;
             user-select: none; -webkit-user-select: none;
         }
+        html, body { touch-action: manipulation; }
         canvas { display: block; width: 100vw; height: 100vh; outline: none; }
 
         #start-screen {
@@ -95,9 +96,80 @@
         #sidebar-menu button { width: 100%; padding: 15px 20px; font-size: 15px; justify-content: center; text-align: center; }
 
         #controls-hint {
-            position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%);
+            position: absolute; bottom: 120px; left: 20px; transform: none;
             background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); color: rgba(255,255,255,0.7);
             padding: 8px 20px; border-radius: 20px; font-size: 12px; pointer-events: none; letter-spacing: 1px;
+            max-width: min(50vw, 560px);
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        #btn-leaderboard-floating {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 60;
+            pointer-events: auto;
+            min-width: 170px;
+        }
+
+        body.mobile-layout .header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+            padding: 12px;
+        }
+        body.mobile-layout .stats-box {
+            min-width: 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        body.mobile-layout .stats-box h1 { font-size: 14px; }
+        body.mobile-layout .money { font-size: 22px; }
+        body.mobile-layout .top-buttons {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 72px;
+            gap: 8px;
+        }
+        body.mobile-layout #btn-auto-fuse { width: 100%; height: 44px !important; }
+        body.mobile-layout #btn-menu { width: 72px; height: 44px !important; }
+        body.mobile-layout #event-panel {
+            position: static !important;
+            transform: none !important;
+            min-width: 0 !important;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        body.mobile-layout .footer {
+            padding: 0 12px 16px;
+            justify-content: stretch;
+        }
+        body.mobile-layout #btn-buy {
+            width: 100%;
+            font-size: 15px;
+            padding: 14px 16px;
+        }
+        body.mobile-layout #controls-hint {
+            left: 12px;
+            right: 12px;
+            max-width: none;
+            bottom: 72px;
+            font-size: 11px;
+            padding: 7px 12px;
+        }
+        body.mobile-layout #btn-leaderboard-floating {
+            right: 12px;
+            top: auto;
+            bottom: 140px;
+            transform: none;
+            min-width: 0;
+            width: auto;
+            padding: 10px 12px;
+            font-size: 12px;
         }
 
         .modal-overlay {
@@ -247,7 +319,6 @@
         <button onclick="toggleSidebar(false); openCollection()" style="color: #ffd700; border-color: #ffd700;">📖 Coleção de Espécies</button>
         <button onclick="toggleSidebar(false); openAchievements()" style="color: #ffd700; border-color: #ffd700;">🏅 Conquistas</button>
         <button onclick="toggleSidebar(false); openSkins()" style="color: #ffaa00; border-color: #ffaa00;">👕 Skins</button>
-        <button onclick="toggleSidebar(false); openLeaderboard()">🏆 Leaderboard</button>
         <hr style="border: 0; height: 1px; background: rgba(255,255,255,0.1); width: 100%; margin: 10px 0;">
         <button onclick="toggleSidebar(false); document.getElementById('modal-settings').style.display='flex'">⚙️ Configurações</button>
     </div>
@@ -296,8 +367,15 @@
                 <button id="btn-menu" onclick="toggleSidebar(true)" style="height: 48px; font-size: 24px; padding: 0 15px;">☰</button>
             </div>
         </div>
+
+        <button id="btn-leaderboard-floating" class="btn-primary" onclick="openLeaderboard()">🏆 Leaderboard</button>
         
-        <div id="controls-hint">ESQUERDO: Arrastar | DIREITO: Orbitar | SCROLL: Zoom | CLIQUE DUAS VEZES EM GALINHAS DURANTE A FUGA!</div>
+        <div id="controls-hint">
+            <span>ESQUERDO: Arrastar</span>
+            <span>DIREITO: Orbitar</span>
+            <span>SCROLL: Zoom</span>
+            <span>CLIQUE DUAS VEZES EM GALINHAS DURANTE A FUGA!</span>
+        </div>
 
         <div class="footer">
             <button id="btn-buy" class="btn-primary btn-large">
@@ -326,6 +404,10 @@
             <div style="display:flex; justify-content:space-between; align-items:center; margin: 20px 0;">
                 <span>Efeitos Sonoros (SFX):</span>
                 <button id="btn-sfx" class="btn-primary" onclick="toggleSFX()">LIGADO</button>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin: 20px 0;">
+                <span>Layout da Interface:</span>
+                <button id="btn-layout-mode" class="btn-primary" onclick="toggleUILayoutMode()">PC</button>
             </div>
             <div class="modal-buttons">
                 <button class="btn-primary" style="background: rgba(255,50,50,0.2); border-color: #ff3333; color: #ff3333;" onclick="hardResetGame()">Reset Status</button>
@@ -363,14 +445,28 @@
         // ==========================================
         // LÓGICA CORE E DADOS
         // ==========================================
-        const PRECO_INICIAL = 50; const MULTIPLICADOR_CUSTO = 1.05; const SALDO_INICIAL = 200;
+        const PRECO_INICIAL = 50; const MULTIPLICADOR_CUSTO = 1.03; const SALDO_INICIAL = 200;
         const INCOME_PER_LEVEL = [0, 2, 10, 30, 80, 200, 450, 1000, 2200, 5000, 12000];
         const GROUND_LEVEL = 1.0; 
         
         let money = SALDO_INICIAL; let totalCompras = 0; let totalSpawnedCows = 0; let cows = []; let nextCowId = 1;
         let explodedChickens = 0; let petChickensCount = 0;
         let autoFuseActive = false; let shadowsEnabled = true;
+        let uiLayoutMode = localStorage.getItem('MergeCow_LayoutMode') || ((window.innerWidth <= 900) ? 'mobile' : 'pc');
         let globalSkin = localStorage.getItem('MergeCow_Skin') || 'default'; // SKINS
+
+        function applyUILayoutMode() {
+            document.body.classList.toggle('mobile-layout', uiLayoutMode === 'mobile');
+            const btn = document.getElementById('btn-layout-mode');
+            if (btn) btn.innerText = uiLayoutMode === 'mobile' ? 'MOBILE' : 'PC';
+        }
+
+        window.toggleUILayoutMode = () => {
+            uiLayoutMode = uiLayoutMode === 'mobile' ? 'pc' : 'mobile';
+            localStorage.setItem('MergeCow_LayoutMode', uiLayoutMode);
+            applyUILayoutMode();
+            SFX.click();
+        };
 
         window.toggleSidebar = (state) => {
             const sb = document.getElementById('sidebar-menu'); const ov = document.getElementById('sidebar-overlay');
@@ -407,7 +503,7 @@
             { id: 'meteor_ok', name: 'Armageddon', icon: '☄️', desc: 'Destrua o Meteoro', diff: 'medium', verify: () => meteorDestroyed },
             { id: 'flood_ok', name: 'A Arca', icon: '🌊', desc: 'Sobreviva à inundação', diff: 'medium', verify: () => floodSurvived >= 1 },
             { id: 'ufo_ok', name: 'Eles Existem!', icon: '🛸', desc: 'Perca uma vaca pro OVNI', diff: 'medium', verify: () => ufoCount >= 1 },
-            // { id: 'lvl_5', name: 'Sólida e Robusta', icon: '🧱', desc: 'Faça uma vaca Nv. 5', diff: 'easy', verify: () => cows.some(c=>c.userData.level>=5) },
+            { id: 'lvl_5', name: 'Sólida e Robusta', icon: '🧱', desc: 'Faça uma vaca Nv. 5', diff: 'easy', verify: () => cows.some(c=>c.userData.level>=5) },
             { id: 'lvl_10', name: 'A Esperada', icon: '🌟', desc: 'Faça uma vaca Nv. 10', diff: 'hard', verify: () => cows.some(c=>c.userData.level>=10) },
             { id: 'alien_get', name: 'Visitante', icon: '👽', desc: 'Desbloqueie a vaca Alien', diff: 'hard', verify: () => !!unlockedCows['alien'] },
             { id: 'flood_get', name: 'Aquática', icon: '💧', desc: 'Desbloqueie a vaca da Inundação', diff: 'hard', verify: () => !!unlockedCows['flood'] },
@@ -417,9 +513,9 @@
             { id: 'wolf_eat_1', name: 'Lobo Mau', icon: '😭', desc: 'Deixe o Lobo devorar 1 animal', diff: 'easy', verify: () => animalsEatenByWolf >= 1 },
             { id: 'wolf_def_5', name: 'Guardião Noturno', icon: '🛡️', desc: 'Derrote o Lobo 5 vezes', diff: 'medium', verify: () => wolfDefeatedCount >= 5 },
             { id: 'wolf_sheep_1', name: 'Páscoa Sangrenta', icon: '🥩', desc: 'Deixe o Lobo devorar 1 ovelha', diff: 'medium', verify: () => sheepEatenByWolf >= 1 },
-            { id: 'wolf_eat_50', name: 'Massacre Selvagem', icon: '☠️', desc: 'O Lobo devorou 50 animais', diff: 'impossible', verify: () => animalsEatenByWolf >= 50 }
-            // { id: 'island_2', name: 'Tijolos Além', icon: '🏗️', desc: 'Expanda sua Ilha 1 Vez', diff: 'medium', verify: () => currentIslandLevel >= 2 },
-            // { id: 'island_3', name: 'Imperador de Ilhas', icon: '🏝️', desc: 'Expanda sua Ilha 2 Vezes', diff: 'hard', verify: () => currentIslandLevel >= 3 }
+            { id: 'wolf_eat_50', name: 'Massacre Selvagem', icon: '☠️', desc: 'O Lobo devorou 50 animais', diff: 'impossible', verify: () => animalsEatenByWolf >= 50 },
+            { id: 'island_2', name: 'Tijolos Além', icon: '🏗️', desc: 'Expanda sua Ilha 1 Vez', diff: 'medium', verify: () => currentIslandLevel >= 2 },
+            { id: 'island_3', name: 'Imperador de Ilhas', icon: '🏝️', desc: 'Expanda sua Ilha 2 Vezes', diff: 'hard', verify: () => currentIslandLevel >= 3 }
         ];
 
         let achQueue = []; let achShowing = false;
@@ -828,21 +924,27 @@
         const matWood = new THREE.MeshStandardMaterial({ color: 0x795548, roughness: 0.8, flatShading: true });
         const matBarnRed = new THREE.MeshStandardMaterial({ color: 0xc62828, flatShading: true });
         const matRoof = new THREE.MeshStandardMaterial({ color: 0x263238, flatShading: true });
+        const treePositions = [];
+        const generatedTrees = [];
+        let fenceGroup = null;
 
         function buildFloatingIsland() {
             const island = new THREE.Mesh(new THREE.CylinderGeometry(35, 25, 10, 8), matDirt);
             island.position.y = -5; island.receiveShadow = true; mapGroup.add(island);
             const boxGeo = new THREE.BoxGeometry(4, 4, 4);
+            const edgeBlocks = [];
             for(let i=0; i<40; i++) {
                 let angle = Math.random() * Math.PI * 2; let radius = 30 + Math.random() * 5;
                 let block = new THREE.Mesh(boxGeo, matDirt); block.position.set(Math.cos(angle)*radius, -3 - Math.random()*5, Math.sin(angle)*radius);
                 block.rotation.set(Math.random(), Math.random(), Math.random()); block.receiveShadow = true; block.castShadow = true; mapGroup.add(block);
+                edgeBlocks.push({ mesh: block, baseX: block.position.x, baseZ: block.position.z });
             }
             const grassTop = new THREE.Mesh(new THREE.CylinderGeometry(35, 35, 1, 16), matGrassBase);
             grassTop.position.y = 0.5; grassTop.receiveShadow = true; mapGroup.add(grassTop);
-            return new THREE.Plane(new THREE.Vector3(0, 1, 0), GROUND_LEVEL);
+            return { plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), GROUND_LEVEL), island, grassTop, edgeBlocks };
         }
-        const intersectionPlane = buildFloatingIsland();
+        const islandData = buildFloatingIsland();
+        const intersectionPlane = islandData.plane;
 
         // ==========================================
         // SISTEMA DE GRAMA REATIVA, VENTO E CHUVA
@@ -862,9 +964,102 @@
                 if (x > -10 && x < 14 && z > -30 && z < -10) valid = false;
                 for (let obs of obstacles) { if (obs.type === 'circle' && Math.sqrt((x-obs.x)**2 + (z-obs.z)**2) < obs.r + 0.5) valid = false; }
             }
-            let baseScale = 0.5 + Math.random() * 0.7; grassData.push({ x, z, baseScale, squashTimer: 0, popTimer: 0, popping: false, eaten: false });
+            let baseScale = 0.5 + Math.random() * 0.7; grassData.push({ x, z, baseScale, squashTimer: 0, popTimer: 0, popping: false, eaten: false, regrowAt: 0 });
             _position.set(x, GROUND_LEVEL, z); _euler.set(0, Math.random() * Math.PI, 0); _quaternion.setFromEuler(_euler); _scale.set(baseScale, baseScale, baseScale);
             _dummy.matrix.compose(_position, _quaternion, _scale); grassInstanced.setMatrixAt(i, _dummy.matrix);
+        }
+
+        const tractor = {
+            unlocked: false,
+            active: false,
+            timer: 0,
+            cooldown: 20,
+            passDuration: 24,
+            direction: 1,
+            progress: 0,
+            lineZ: 0,
+            mesh: null
+        };
+
+        function createTractorMesh() {
+            const g = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.BoxGeometry(3.5, 1.5, 2.2), new THREE.MeshStandardMaterial({ color: 0xd32f2f, roughness: 0.7, flatShading: true }));
+            body.position.y = 1.6; body.castShadow = true; g.add(body);
+            const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.5, 1.6), new THREE.MeshStandardMaterial({ color: 0x90caf9, roughness: 0.3, metalness: 0.2, transparent: true, opacity: 0.9 }));
+            cabin.position.set(-0.5, 2.4, 0); cabin.castShadow = true; g.add(cabin);
+            const cutter = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.4, 2.8), new THREE.MeshStandardMaterial({ color: 0x455a64, roughness: 0.8, flatShading: true }));
+            cutter.position.set(1.6, 0.6, 0); cutter.castShadow = true; g.add(cutter);
+            const wheelGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.5, 12);
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x1b1b1b, roughness: 0.9, flatShading: true });
+            [[-1.2, 0.55, -1.0], [-1.2, 0.55, 1.0], [1.1, 0.55, -1.0], [1.1, 0.55, 1.0]].forEach(p => {
+                const w = new THREE.Mesh(wheelGeo, wheelMat);
+                w.rotation.z = Math.PI / 2;
+                w.position.set(p[0], p[1], p[2]);
+                w.castShadow = true;
+                g.add(w);
+            });
+            g.visible = false;
+            scene.add(g);
+            tractor.mesh = g;
+        }
+
+        function cutGrassNear(x, z, radius, nowSec) {
+            const r2 = radius * radius;
+            for (let i = 0; i < GRASS_COUNT; i++) {
+                const gd = grassData[i];
+                if (gd.eaten) continue;
+                const gx = gd.x * currentIslandScale;
+                const gz = gd.z * currentIslandScale;
+                const dx = gx - x;
+                const dz = gz - z;
+                if (dx * dx + dz * dz <= r2) {
+                    gd.eaten = true;
+                    gd.regrowAt = nowSec + 300;
+                }
+            }
+        }
+
+        function updateTractor(delta, nowSec) {
+            if (!tractor.unlocked) {
+                if (tractor.mesh) tractor.mesh.visible = false;
+                tractor.active = false;
+                return;
+            }
+            if (!tractor.mesh) createTractorMesh();
+
+            const area = 24 * currentIslandScale;
+            if (!tractor.active) {
+                tractor.timer += delta;
+                if (tractor.timer >= tractor.cooldown) {
+                    tractor.active = true;
+                    tractor.timer = 0;
+                    tractor.progress = 0;
+                    tractor.direction *= -1;
+                    tractor.lineZ = (Math.random() * 2 - 1) * (area * 0.8);
+                    tractor.mesh.visible = true;
+                } else {
+                    tractor.mesh.visible = false;
+                    return;
+                }
+            }
+
+            tractor.progress = Math.min(1, tractor.progress + (delta / tractor.passDuration));
+            const xFrom = -area;
+            const xTo = area;
+            const x = tractor.direction > 0
+                ? xFrom + (xTo - xFrom) * tractor.progress
+                : xTo - (xTo - xFrom) * tractor.progress;
+            const z = tractor.lineZ;
+
+            tractor.mesh.position.set(x, GROUND_LEVEL, z);
+            tractor.mesh.rotation.y = tractor.direction > 0 ? Math.PI / 2 : -Math.PI / 2;
+            cutGrassNear(x, z, 2.2, nowSec);
+
+            if (tractor.progress >= 1) {
+                tractor.active = false;
+                tractor.timer = 0;
+                tractor.mesh.visible = false;
+            }
         }
 
         const windGroup = new THREE.Group(); scene.add(windGroup);
@@ -929,9 +1124,15 @@
             barn.position.set(0, 1, -20); mapGroup.add(barn);
         } buildBarn();
 
-        function buildFence() {
-            const fenceGroup = new THREE.Group();
-            const radius = 30; const segments = 36; const angleStep = (Math.PI * 2) / segments;
+        function buildFence(radius = 30) {
+            if (fenceGroup) mapGroup.remove(fenceGroup);
+            fenceGroup = new THREE.Group();
+
+            // Mantém o tamanho físico de cada módulo de cerca e aumenta a quantidade em ilhas maiores.
+            const targetSegmentLen = 5.2;
+            const circumference = 2 * Math.PI * radius;
+            const segments = Math.max(24, Math.ceil(circumference / targetSegmentLen));
+            const angleStep = (Math.PI * 2) / segments;
             for(let i = 0; i < segments; i++) {
                 let angle = i * angleStep; let x = Math.cos(angle) * radius; let z = Math.sin(angle) * radius;
                 let post = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3, 0.5), matWood); post.position.set(x, 2.5, z); post.castShadow = true; post.receiveShadow = true; post.lookAt(0, 2.5, 0); fenceGroup.add(post);
@@ -941,7 +1142,84 @@
                 let plank2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, dist + 0.2), matWood); plank2.position.set((x+nx)/2, 1.8, (z+nz)/2); plank2.lookAt(nx, 1.8, nz); plank2.castShadow = true; fenceGroup.add(plank2);
             }
             mapGroup.add(fenceGroup);
-        } buildFence();
+        } buildFence(30);
+
+        function rebuildFenceForIslandScale(scale) {
+            const fenceRadius = 30 * scale;
+            buildFence(fenceRadius);
+        }
+
+        function isBarnZone(x, z) {
+            return x > -10 && x < 14 && z > -30 && z < -10;
+        }
+
+        function canSpawnTreeAt(x, z) {
+            if (isBarnZone(x, z)) return false;
+            for (const obs of obstacles) {
+                if (obs.type === 'box') {
+                    if (x > obs.minX - 1.5 && x < obs.maxX + 1.5 && z > obs.minZ - 1.5 && z < obs.maxZ + 1.5) return false;
+                } else if (obs.type === 'circle') {
+                    const d = Math.hypot(x - obs.x, z - obs.z);
+                    if (d < obs.r + 2.5) return false;
+                }
+            }
+            for (const tp of treePositions) {
+                if (Math.hypot(x - tp.x, z - tp.z) < 7) return false;
+            }
+            return true;
+        }
+
+        function spawnTreesForExpansion(prevScale, newScale) {
+            const inner = 30 * prevScale;
+            const outer = 30 * newScale;
+            if (outer <= inner + 2) return;
+
+            const levelsGained = Math.max(1, Math.round((newScale - prevScale) / 0.25));
+            const treesToSpawn = Math.min(12, 2 + levelsGained * 2);
+            let created = 0;
+            let tries = 0;
+
+            while (created < treesToSpawn && tries < treesToSpawn * 40) {
+                tries++;
+                const angle = Math.random() * Math.PI * 2;
+                const radius = inner + 2 + Math.random() * Math.max(1, (outer - inner - 4));
+                const x = Math.cos(angle) * radius;
+                const z = Math.sin(angle) * radius;
+                if (!canSpawnTreeAt(x, z)) continue;
+
+                const builtTree = buildTree(x, z);
+                treePositions.push({ x, z });
+                const treeObstacle = { type: 'circle', x, z, r: 3.5 };
+                obstacles.push(treeObstacle);
+                generatedTrees.push({ x, z, tree: builtTree.tree, sound: builtTree.sound, obstacle: treeObstacle });
+                created++;
+            }
+        }
+
+        function removeGeneratedTreesOutsideScale(scale) {
+            const maxRadius = (30 * scale) - 1;
+            for (let i = generatedTrees.length - 1; i >= 0; i--) {
+                const entry = generatedTrees[i];
+                const dist = Math.hypot(entry.x, entry.z);
+                if (dist <= maxRadius) continue;
+
+                if (entry.sound) {
+                    try { entry.sound.pause(); } catch (e) {}
+                    const soundIdx = continuousSounds.indexOf(entry.sound);
+                    if (soundIdx >= 0) continuousSounds.splice(soundIdx, 1);
+                }
+
+                if (entry.tree) mapGroup.remove(entry.tree);
+
+                const obsIdx = obstacles.indexOf(entry.obstacle);
+                if (obsIdx >= 0) obstacles.splice(obsIdx, 1);
+
+                const posIdx = treePositions.findIndex(tp => Math.abs(tp.x - entry.x) < 0.001 && Math.abs(tp.z - entry.z) < 0.001);
+                if (posIdx >= 0) treePositions.splice(posIdx, 1);
+
+                generatedTrees.splice(i, 1);
+            }
+        }
 
         function buildTree(x, z) {
             const tree = new THREE.Group();
@@ -950,7 +1228,13 @@
             for(let i=0; i<3; i++) { let leaves = new THREE.Mesh(new THREE.ConeGeometry(3 - i*0.5, 4, 6), matLeaves); leaves.position.y = 3.5 + i*1.5; leaves.rotation.y = Math.random(); leaves.castShadow = true; tree.add(leaves); }
             const leavesSound = new THREE.PositionalAudio(listener); leavesSound.setBuffer(leavesBuffer); leavesSound.setRefDistance(2); leavesSound.setMaxDistance(15); leavesSound.setLoop(true); leavesSound.setVolume(0.2); tree.add(leavesSound); continuousSounds.push(leavesSound);
             tree.position.set(x, 1, z); mapGroup.add(tree);
-        } buildTree(-25, -10); buildTree(-20, -18); buildTree(25, 5); buildTree(28, -8); buildTree(-15, 25);
+            return { tree, sound: leavesSound };
+        }
+        buildTree(-25, -10); treePositions.push({ x: -25, z: -10 });
+        buildTree(-20, -18); treePositions.push({ x: -20, z: -18 });
+        buildTree(25, 5); treePositions.push({ x: 25, z: 5 });
+        buildTree(28, -8); treePositions.push({ x: 28, z: -8 });
+        buildTree(-15, 25); treePositions.push({ x: -15, z: 25 });
 
         // ==========================================
         // GALINHAS & VACA VOXEL 3D
@@ -1391,11 +1675,22 @@
 
         window.addEventListener('pointerup', () => {
             if (!draggedCow) return; draggedCow.position.y = Math.max(GROUND_LEVEL, water.level); draggedCow.userData.isDragging = false;
-            for (let i = 0; i < cows.length; i++) { let otherCow = cows[i]; if (otherCow === draggedCow || draggedCow.userData.type !== 'normal' || otherCow.userData.type !== 'normal') continue; if (draggedCow.userData.level === otherCow.userData.level && draggedCow.position.distanceTo(otherCow.position) < 5) { performMerge3D(draggedCow, otherCow); break; } }
+            for (let i = 0; i < cows.length; i++) { let otherCow = cows[i]; if (otherCow === draggedCow || draggedCow.userData.type !== 'normal' || otherCow.userData.type !== 'normal') continue; if (draggedCow.userData.level === otherCow.userData.level && draggedCow.position.distanceTo(otherCow.position) < 5 && !isPathBlocked(draggedCow.position.x, draggedCow.position.z, otherCow.position.x, otherCow.position.z)) { performMerge3D(draggedCow, otherCow); break; } }
             draggedCow = null; controls.enabled = true;
         });
 
-        function performMerge3D(c1, c2) { let nextLevel = c1.userData.level + 1; let mx = (c1.position.x + c2.position.x) / 2; let mz = (c1.position.z + c2.position.z) / 2; cowGroup.remove(c1); cowGroup.remove(c2); cows = cows.filter(c => c !== c1 && c !== c2); let newCow = createVoxelCow(nextLevel, mx, mz); newCow.position.y = 5; createFloatingText("MERGE!", mx, mz); updateUI(); SFX.merge(); mergeCount++; checkAchievements(); }
+        function performMerge3D(c1, c2) {
+            let nextLevel = c1.userData.level + 1;
+            let mx = (c1.position.x + c2.position.x) / 2;
+            let mz = (c1.position.z + c2.position.z) / 2;
+            if (isColliding(mx, mz)) {
+                if (!isColliding(c1.position.x, c1.position.z)) { mx = c1.position.x; mz = c1.position.z; }
+                else if (!isColliding(c2.position.x, c2.position.z)) { mx = c2.position.x; mz = c2.position.z; }
+            }
+            cowGroup.remove(c1); cowGroup.remove(c2); cows = cows.filter(c => c !== c1 && c !== c2);
+            let newCow = createVoxelCow(nextLevel, mx, mz); newCow.position.y = 5;
+            createFloatingText("MERGE!", mx, mz); updateUI(); SFX.merge(); mergeCount++; checkAchievements();
+        }
 
         // ==========================================
         // OBJETOS DOS EVENTOS E CONTROLES UI
@@ -1500,6 +1795,33 @@
         function startChickenEvent() {
             chickenEvent.active = true; chickenEvent.timer = 0; chickenEvent.phase = 'opening';
         }
+
+        function isPathBlocked(x1, z1, x2, z2) {
+            const dx = x2 - x1;
+            const dz = z2 - z1;
+            const dist = Math.sqrt(dx * dx + dz * dz);
+            if (dist < 1.5) return false;
+            const steps = Math.max(3, Math.ceil(dist / 1.5));
+            for (let i = 1; i < steps; i++) {
+                const t = i / steps;
+                if (t < 0.2 || t > 0.8) continue;
+                const sx = x1 + dx * t;
+                const sz = z1 + dz * t;
+                if (isColliding(sx, sz)) return true;
+            }
+            return false;
+        }
+
+        function canFusePair(c1, c2) {
+            if (!c1 || !c2) return false;
+            if (c1.userData.type !== 'normal' || c2.userData.type !== 'normal') return false;
+            if (c1.userData.level !== c2.userData.level) return false;
+            if (c1.userData.isDragging || c2.userData.isDragging) return false;
+            if (c1.userData.isUFOVictim || c2.userData.isUFOVictim) return false;
+            if (isPathBlocked(c1.position.x, c1.position.z, c2.position.x, c2.position.z)) return false;
+            return true;
+        }
+
         // ==========================================
         // ANIMAÇÃO CORE E FÍSICA
         // ==========================================
@@ -1519,17 +1841,25 @@
             if (typeof meteor !== 'undefined' && meteor.active) return;
 
             // Nível 1: 0-49 vacas | Nível 2: 50-99 vacas | Nível 3: 100-149...
-            const novoNivel = Math.max(1, Math.floor(cows.length / 20) + 1);
+            const vacasPasto = cows.filter(c => c.userData.type === 'normal').length;
+            const novoNivel = Math.max(1, Math.floor(vacasPasto / 20) + 1);
 
             if (novoNivel !== currentIslandLevel) {
                 const ampliou = novoNivel > currentIslandLevel;
+                const oldScale = targetIslandScale;
                 currentIslandLevel = novoNivel;
                 
-                // A área base dobra a cada nível de ampliação
-                targetIslandScale = currentIslandLevel; 
+                // Crescimento mais estável para não quebrar colisões
+                targetIslandScale = 1 + ((currentIslandLevel - 1) * 0.25);
                 
                 // A água cresce 10% a mais por ampliação para não revelar bordas
-                targetWaterScale = 1 + ((currentIslandLevel - 1) * 0.10); 
+                targetWaterScale = 1 + ((currentIslandLevel - 1) * 0.08);
+
+                tractor.unlocked = currentIslandLevel >= 2;
+
+                rebuildFenceForIslandScale(targetIslandScale);
+                if (ampliou) spawnTreesForExpansion(oldScale, targetIslandScale);
+                else removeGeneratedTreesOutsideScale(targetIslandScale);
                 
                 // Informar o jogador usando a pop-up já existente no seu código
                 let tooltip = document.getElementById('collection-tooltip');
@@ -1560,22 +1890,14 @@
             if (Math.abs(currentIslandScale - targetIslandScale) > 0.01) {
                 currentIslandScale += (targetIslandScale - currentIslandScale) * 0.02;
                 
-                // Aplica a escala na malha do chão (Altere 'intersectionPlane' para o nome da variável da malha da grama se necessário)
-                if(typeof intersectionPlane !== 'undefined') {
-                    intersectionPlane.scale.set(currentIslandScale, 1, currentIslandScale); 
-                }
-                
-                // Espalhando as instâncias de grama sem destruir as construções
-                if(typeof grassInstanced !== 'undefined' && typeof grassData !== 'undefined') {
-                    const _dummy = new THREE.Object3D();
-                    for (let i = 0; i < grassData.length; i++) {
-                        let gd = grassData[i];
-                        // Posicionamento escalado (afasta a grama proporcionalmente)
-                        _dummy.position.set(gd.x * currentIslandScale, GROUND_LEVEL, gd.z * currentIslandScale);
-                        _dummy.updateMatrix();
-                        grassInstanced.setMatrixAt(i, _dummy.matrix);
-                    }
-                    grassInstanced.instanceMatrix.needsUpdate = true;
+                // Escala visual da ilha sem afetar celeiro/árvores.
+                if (islandData?.island && islandData?.grassTop) {
+                    islandData.island.scale.set(currentIslandScale, 1, currentIslandScale);
+                    islandData.grassTop.scale.set(currentIslandScale, 1, currentIslandScale);
+                    islandData.edgeBlocks.forEach(blockData => {
+                        blockData.mesh.position.x = blockData.baseX * currentIslandScale;
+                        blockData.mesh.position.z = blockData.baseZ * currentIslandScale;
+                    });
                 }
             }
 
@@ -1584,11 +1906,7 @@
                 currentWaterScale += (targetWaterScale - currentWaterScale) * 0.02;
                 // Aplica na água (Altere a variável se não for 'water' ou 'waterGeo')
                 if(typeof scene !== 'undefined') {
-                    scene.children.forEach(child => {
-                        if (child.geometry && child.geometry.type === 'PlaneGeometry' && child.material.transparent) {
-                            child.scale.set(currentWaterScale, 1, currentWaterScale);
-                        }
-                    });
+                    waterMesh.scale.set(currentWaterScale, 1, currentWaterScale);
                 }
             }
         }
@@ -1596,6 +1914,9 @@
         function animate() {
             requestAnimationFrame(animate);
             let delta = Math.min(clock.getDelta(), 0.1); let time = clock.getElapsedTime(); playTimeSec += delta;
+            checarTamanhoIlha();
+            animateIslandScale();
+            updateTractor(delta, time);
             controls.update(); cows.forEach(c => c.userData.targetCow = null);
 
             // ANIMAÇÃO ESPECÍFICA SKIN DE LAVA
@@ -1612,7 +1933,7 @@
             if (wolfEvent.active) {
                 wolfEvent.timer += delta;
                 
-                const daySky = originalFogColor; const nightSky = new THREE.Color(0x000511);
+                const daySky = originalFogColor; const nightSky = new THREE.Color(0x17314a);
                 const dayLight = 0xffffff; const nightLight = 0x88bbff;
                 
                 if (wolfEvent.timer < 3) wolfEvent.ambientTransition = Math.min(1, wolfEvent.ambientTransition + delta * 0.5);
@@ -1621,8 +1942,8 @@
                 scene.background.lerpColors(daySky, nightSky, wolfEvent.ambientTransition);
                 scene.fog.color.copy(scene.background);
                 dirLight.color.lerpColors(new THREE.Color(dayLight), new THREE.Color(nightLight), wolfEvent.ambientTransition);
-                dirLight.intensity = 1.2 - (wolfEvent.ambientTransition * 1.0); 
-                hemiLight.intensity = 0.5 - (wolfEvent.ambientTransition * 0.3); 
+                dirLight.intensity = 1.2 - (wolfEvent.ambientTransition * 0.55); 
+                hemiLight.intensity = 0.5 - (wolfEvent.ambientTransition * 0.18); 
                 
                 if (wolfEvent.timer < 60) {
                     if (wolfEvent.spawnWolf && wolfEvent.phase === 'night_falling') {
@@ -1925,7 +2246,7 @@
                 for(let i=0; i<cows.length && !mergedThisFrame; i++) {
                     for(let j=i+1; j<cows.length; j++) {
                         let c1 = cows[i]; let c2 = cows[j];
-                        if(c1.userData.type==='normal' && c2.userData.type==='normal' && c1.userData.level === c2.userData.level && !c1.userData.isDragging && !c2.userData.isDragging && !c1.userData.targetCow && !c2.userData.targetCow && !c1.userData.isUFOVictim && !c2.userData.isUFOVictim) {
+                        if(!c1.userData.targetCow && !c2.userData.targetCow && canFusePair(c1, c2)) {
                             c1.userData.targetCow = c2; c2.userData.targetCow = c1;
                             if(c1.position.distanceTo(c2.position) < 5) { performMerge3D(c1, c2); mergedThisFrame = true; break; }
                         }
@@ -1957,7 +2278,7 @@
                             let fwdX = Math.sin(cow.rotation.y); let fwdZ = Math.cos(cow.rotation.y);
                             for (let i=0; i<GRASS_COUNT; i++) {
                                 let gd = grassData[i];
-                                if (!gd.eaten) { let dx = gd.x - cow.position.x; let dz = gd.z - cow.position.z; let dist = Math.sqrt(dx*dx + dz*dz); if (dist < 4.0 && dist > 0.5 && ((dx/dist)*fwdX + (dz/dist)*fwdZ) > 0.6) { cow.userData.grassToEat.push(i); if (cow.userData.grassToEat.length >= eatCount) break; } }
+                                if (!gd.eaten) { let gx = gd.x * currentIslandScale; let gz = gd.z * currentIslandScale; let dx = gx - cow.position.x; let dz = gz - cow.position.z; let dist = Math.sqrt(dx*dx + dz*dz); if (dist < 4.0 && dist > 0.5 && ((dx/dist)*fwdX + (dz/dist)*fwdZ) > 0.6) { cow.userData.grassToEat.push(i); if (cow.userData.grassToEat.length >= eatCount) break; } }
                             }
                         }
                     }
@@ -1971,15 +2292,38 @@
                         if (cow.userData.eatTimer <= 0) { cow.userData.isEating = false; cow.userData.isHungry = false; cow.userData.isFed = true; cow.userData.poopTimer = 30.0; cow.userData.headGroup.rotation.x = 0; addAura(cow); }
                     } else if (isFusing) {
                         let target = cow.userData.targetCow; let dir = new THREE.Vector3().subVectors(target.position, cow.position).normalize(); let speed = 10;
+                        if (!target || !target.parent || isPathBlocked(cow.position.x, cow.position.z, target.position.x, target.position.z)) {
+                            cow.userData.targetCow = null;
+                            cow.userData.fuseBlockedTime = 0;
+                            if (target && target.userData) target.userData.targetCow = null;
+                            return;
+                        }
                         let nX = cow.position.x + dir.x * delta * speed; let nZ = cow.position.z + dir.z * delta * speed;
+                        let moved = false;
                         if (isColliding(nX, nZ)) {
                             let dirRight = new THREE.Vector3(dir.z, 0, -dir.x); let rX = cow.position.x + dirRight.x * delta * speed; let rZ = cow.position.z + dirRight.z * delta * speed;
                             let dirLeft = new THREE.Vector3(-dir.z, 0, dir.x); let lX = cow.position.x + dirLeft.x * delta * speed; let lZ = cow.position.z + dirLeft.z * delta * speed;
                             if (!isColliding(rX, rZ)) { nX = rX; nZ = rZ; } else if (!isColliding(lX, lZ)) { nX = lX; nZ = lZ; } else { nX = cow.position.x; nZ = cow.position.z; }
                         }
-                        if(!isColliding(nX, cow.position.z)) cow.position.x = nX; if(!isColliding(cow.position.x, nZ)) cow.position.z = nZ;
+                        if(!isColliding(nX, cow.position.z)) { cow.position.x = nX; moved = true; }
+                        if(!isColliding(cow.position.x, nZ)) { cow.position.z = nZ; moved = true; }
                         if (nX !== cow.position.x || nZ !== cow.position.z) cow.lookAt(nX, cow.position.y, nZ); else cow.lookAt(target.position.x, cow.position.y, target.position.z);
                         cow.userData.velocity = speed;
+                        if (!moved) {
+                            cow.userData.fuseBlockedTime = (cow.userData.fuseBlockedTime || 0) + delta;
+                            if (cow.userData.fuseBlockedTime > 2.0) {
+                                const other = cow.userData.targetCow;
+                                cow.userData.targetCow = null;
+                                cow.userData.fuseBlockedTime = 0;
+                                if (other && other.userData) {
+                                    other.userData.targetCow = null;
+                                    other.userData.fuseBlockedTime = 0;
+                                }
+                                cow.userData.targetYRot += Math.PI * (Math.random() > 0.5 ? 1 : -1);
+                            }
+                        } else {
+                            cow.userData.fuseBlockedTime = 0;
+                        }
                     } else {
                         let diff = cow.userData.targetYRot - cow.rotation.y; cow.rotation.y += diff * delta * 2;
                         if(Math.random() < 0.01) cow.userData.velocity = (Math.random() > 0.5) ? 3 : 0; 
@@ -2015,9 +2359,16 @@
             let activeCows = cows.filter(c => c.userData.velocity > 0 || c.userData.isDragging);
             for(let i = 0; i < GRASS_COUNT; i++) {
                 let gd = grassData[i];
+                if (gd.eaten && gd.regrowAt > 0 && time >= gd.regrowAt) {
+                    gd.eaten = false;
+                    gd.regrowAt = 0;
+                    gd.squashTimer = 0;
+                    gd.popping = true;
+                    gd.popTimer = 0.6;
+                }
                 if (gd.eaten) { _scale.set(0, 0, 0); } else {
                     if (activeCows.length > 0 && gd.squashTimer <= 0 && !gd.popping) {
-                        for(let cow of activeCows) { if ((gd.x - cow.position.x)**2 + (gd.z - cow.position.z)**2 < 4.0) { gd.squashTimer = 5.0; gd.popping = false; break; } }
+                        for(let cow of activeCows) { let gx = gd.x * currentIslandScale; let gz = gd.z * currentIslandScale; if ((gx - cow.position.x)**2 + (gz - cow.position.z)**2 < 4.0) { gd.squashTimer = 5.0; gd.popping = false; break; } }
                     }
                     let scaleY = gd.baseScale; let scaleX = gd.baseScale; let scaleZ = gd.baseScale;
                     let rotX = Math.sin(time * 2 + gd.x) * 0.15; let rotZ = Math.cos(time * 2 + gd.z) * 0.15; let rotY = gd.x;
@@ -2032,7 +2383,7 @@
                     }
                     _scale.set(scaleX, scaleY, scaleZ); _euler.set(rotX, rotY, rotZ);
                 }
-                _position.set(gd.x, GROUND_LEVEL, gd.z); _quaternion.setFromEuler(_euler); 
+                _position.set(gd.x * currentIslandScale, GROUND_LEVEL, gd.z * currentIslandScale); _quaternion.setFromEuler(_euler); 
                 _dummy.matrix.compose(_position, _quaternion, _scale); grassInstanced.setMatrixAt(i, _dummy.matrix);
             }
             grassInstanced.instanceMatrix.needsUpdate = true;
@@ -2097,6 +2448,15 @@
         window.hardResetGame = () => { if(confirm("ATENÇÃO: Isso deletará todas as vacas e o dinheiro permanentemente.")) { cows.forEach(c => cowGroup.remove(c)); cows = []; poopGroup.clear(); chickenGroup.clear(); petChickenGroup.clear(); money = SALDO_INICIAL; totalCompras = 0; totalSpawnedCows = 0; petChickensCount = 0; explodedChickens = 0; unlockedCows = {1:true}; mergeCount=0; meteorDestroyed=false; poopCollected=0; totalChickensExploded=0; ufoCount=0; floodSurvived=0; playTimeSec=0; wolfDefeatedCount=0; animalsEatenByWolf=0; sheepEatenByWolf=0; unlockedAchievements={}; localStorage.removeItem('MergeCow_Collection'); localStorage.removeItem('MergeCow_Achievements'); updateUI(); document.getElementById('modal-settings').style.display='none'; } };
         window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
 
+        // Bloqueia apenas zoom do navegador (Ctrl + wheel / Ctrl + +/-), preservando o zoom da câmera do jogo.
+        window.addEventListener('wheel', (event) => {
+            if (event.ctrlKey) event.preventDefault();
+        }, { passive: false });
+        window.addEventListener('keydown', (event) => {
+            if (!event.ctrlKey) return;
+            if (event.key === '+' || event.key === '-' || event.key === '=' || event.key === '0') event.preventDefault();
+        });
+
         // Adicionar funcionalidade para alterar dinheiro permanentemente
         document.addEventListener('DOMContentLoaded', () => {
             const btn = document.getElementById('admin-money-btn');
@@ -2113,6 +2473,7 @@
         });
 
         loadGame(); animate();
+        applyUILayoutMode();
     </script>
 </body>
 </html>
